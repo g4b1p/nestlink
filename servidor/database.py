@@ -17,7 +17,7 @@ if __name__ == '__main__':
     # Sustituye con tus credenciales reales
     db_config_test = {
         'user': 'root',
-        'password': 'Cole481992_',
+        'password': '',
         'host': 'localhost',
         'database': 'nestlink_bd'
     }
