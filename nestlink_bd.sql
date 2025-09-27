@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 01-09-2025 a las 02:23:42
+-- Tiempo de generación: 28-09-2025 a las 01:01:03
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -105,6 +105,13 @@ CREATE TABLE `usuarios` (
   `sector` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `usuarios`
+--
+
+INSERT INTO `usuarios` (`id_usuario`, `nombre_usuario`, `contrasena_hash`, `sector`) VALUES
+(1, 'profesor', '$2b$12$iYNwIP/087KUgTl58OG8U.V3elK5qTr44120SWzDcZff2B9ahnTlG', 'rrhh');
+
 -- --------------------------------------------------------
 
 --
@@ -203,7 +210,7 @@ ALTER TABLE `productos`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `ventas`
