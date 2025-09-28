@@ -1,7 +1,7 @@
 import customtkinter
 from PIL import Image
 import os
-import conexion_servidor # Asumo que esta librería existe y maneja la lógica de conexión
+import conexion_servidor
 
 # Establecemos la apariencia y el color por defecto de CTk
 customtkinter.set_appearance_mode("System")
@@ -11,108 +11,132 @@ class LoginApp(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
-        # --- 1. Configuración de la Ventana ---
-        # Aumentamos el tamaño para simular el layout del mockup
+        # --- 1. Configuración de la Ventana Principal ---
         self.geometry("800x500")
         self.title("Tu ERP - Iniciar Sesión")
         
-        # Hacemos que la única columna y fila se expandan para que el fondo lo cubra todo
+        # Color estático de fondo para mimetizar los bordes de la imagen.
+        self.configure(fg_color="#73a0cb")
+        
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # --- 2. Implementación de la Imagen de Fondo (bg_label) ---
-        
-        # Creamos la ruta completa a la imagen
+        # --- 2. Implementación de la Imagen de Fondo ---
         current_dir = os.path.dirname(os.path.abspath(__file__))
         image_path = os.path.join(current_dir, "images", "login-img.png")
         
         try:
-            # Cargamos la imagen original
             self.bg_image_original = Image.open(image_path)
-            
-            # Inicializamos CTkImage con un tamaño que se ajustará dinámicamente
             self.bg_image_ctk = customtkinter.CTkImage(
                 light_image=self.bg_image_original, 
                 dark_image=self.bg_image_original, 
-                size=(1, 1) # Tamaño inicial temporal, se ajustará con _resize_image
+                size=(1, 1) 
             )
 
-            # Creamos una etiqueta (Label) que contendrá la imagen de fondo
             self.bg_label = customtkinter.CTkLabel(
                 self, 
                 image=self.bg_image_ctk, 
                 text="" 
-                # La etiqueta usará automáticamente el color de fondo de la aplicación.
             )
             
-            # Colocamos la etiqueta en la celda 0,0 y la expandimos horizontalmente 
-            # y la pegamos al límite superior (norte).
+            # La imagen se ancla a la parte superior y se expande.
             self.bg_label.grid(row=0, column=0, sticky="new") 
-            
-            # Configuramos un evento para redimensionar la imagen cuando se redimensiona la ventana
             self.bind("<Configure>", self._resize_image)
 
         except FileNotFoundError:
             print(f"Error: No se encontró la imagen en la ruta: {image_path}")
-            # Si la imagen falla, creamos una etiqueta simple de fondo con un color
             self.bg_label = customtkinter.CTkLabel(self, text="Fondo no disponible", fg_color="gray", text_color="white")
             self.bg_label.grid(row=0, column=0, sticky="nsew")
 
-        # --- 3. El contenido del Login (temporalmente deshabilitado/oculto) ---
-        # Dejo la llamada a la función para simular el proceso de login
-        self.username_entry = customtkinter.CTkEntry(self, placeholder_text="Usuario")
-        self.password_entry = customtkinter.CTkEntry(self, placeholder_text="Contraseña", show="*")
-        self.status_label = customtkinter.CTkLabel(self, text="", text_color="red")
-        
-        # Llamamos al método que creará el panel de login en el siguiente paso
-        # Llamamos a _resize_image una vez al inicio para que la imagen se cargue con el tamaño correcto
-        self.after(100, lambda: self._resize_image(None)) # Usamos after para asegurar que winfo_width/height sea correcto
+        # --- 3. Llamada al Panel de Login ---
         self.create_login_panel()
+        self.after(100, lambda: self._resize_image(None))
 
 
     def _resize_image(self, event):
         """
-        Redimensiona la imagen de fondo para que se AJUSTE (contain), 
-        mostrando la imagen completa sin salirse de los límites de la app.
+        Redimensiona la imagen de fondo para el modo 'contain' (ver completa) 
+        y la alinea a la cima, manteniendo el aspecto ratio.
         """
         if hasattr(self, 'bg_image_ctk') and hasattr(self, 'bg_image_original'):
-            # 1. Dimensiones de la ventana (el contenedor de la imagen)
             new_width = self.winfo_width() if event is None else event.width
             new_height = self.winfo_height() if event is None else event.height
             
             if new_width <= 0 or new_height <= 0:
                 return
             
-            # 2. Dimensiones originales de la imagen
             original_width, original_height = self.bg_image_original.size
             
-            # 3. Calcular los factores de escala
             width_ratio = new_width / original_width
             height_ratio = new_height / original_height
             
-            # 4. Elegir el factor de escala MÁS PEQUEÑO (efecto 'contain' / "alejar al límite")
-            # Esto asegura que la imagen quepa completamente, sin recorte.
+            # Modo 'contain' (el más pequeño factor de escala)
             scale_factor = min(width_ratio, height_ratio)
             
-            # 5. Calcular las nuevas dimensiones manteniendo el aspecto
             new_image_width = int(original_width * scale_factor)
             new_image_height = int(original_height * scale_factor)
 
-            # 6. Reconfigurar la imagen de CTkImage
+            if new_image_width == 0:
+                new_image_width = 1
+            if new_image_height == 0:
+                new_image_height = 1
+
             self.bg_image_ctk.configure(size=(new_image_width, new_image_height))
 
 
     def create_login_panel(self):
-        """Este método se desarrollará en el siguiente paso para añadir el formulario."""
-        pass # Placeholder for the next step
+        """
+        Crea el marco del formulario y lo posiciona en la parte derecha de la ventana.
+        """
+        # --- Configuración del Marco de Login ---
+        self.login_frame = customtkinter.CTkFrame(
+            self, 
+            width=350, 
+            height=400, 
+            corner_radius=30, 
+            # Soporte de tema Claro/Oscuro
+            fg_color=("white", "gray17"), 
+            border_width=2, 
+            border_color=("gray80", "gray25") 
+        )
+        
+        # Posicionamiento: centrado verticalmente y movido a la izquierda (relx=0.70).
+        self.login_frame.place(relx=0.70, rely=0.5, anchor="center") 
+        self.login_frame.grid_columnconfigure(0, weight=1)
+        
+        # --- Widgets dentro del Marco ---
+        
+        # Título
+        self.label = customtkinter.CTkLabel(
+            self.login_frame, 
+            text="Inicio de Sesión", 
+            font=customtkinter.CTkFont(size=24, weight="bold")
+        )
+        self.label.grid(row=1, column=0, pady=(40, 25), padx=25, sticky="ew")
+
+        # Entrada de Usuario
+        self.username_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text="Usuario", width=280)
+        self.username_entry.grid(row=2, column=0, pady=12, padx=35, sticky="ew")
+
+        # Entrada de Contraseña
+        self.password_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text="Contraseña", show="*", width=280)
+        self.password_entry.grid(row=3, column=0, pady=12, padx=35, sticky="ew")
+
+        # Botón de Login
+        self.login_button = customtkinter.CTkButton(self.login_frame, text="Entrar", command=self.handle_login, width=280, height=40)
+        self.login_button.grid(row=4, column=0, pady=(20, 15), padx=35, sticky="ew")
+
+        # Etiqueta de Estado/Error
+        self.status_label = customtkinter.CTkLabel(self.login_frame, text="", text_color="#FF4136", wraplength=280)
+        self.status_label.grid(row=5, column=0, pady=(10, 30), padx=25)
 
 
     def handle_login(self):
-        """Simulación de la lógica de login."""
+        """Lógica de manejo de login (simulada)."""
         username = self.username_entry.get()
         password = self.password_entry.get()
         
-        # Simulación de respuesta (se requiere 'conexion_servidor' real)
+        # Simulación de respuesta 
         try:
             response = conexion_servidor.login(username, password)
             if response and "message" in response:
@@ -123,7 +147,7 @@ class LoginApp(customtkinter.CTk):
             else:
                 self.status_label.configure(text="Error de conexión con el servidor.")
         except NameError:
-             self.status_label.configure(text="Error: 'conexion_servidor' no está definido.")
+            self.status_label.configure(text="Error: 'conexion_servidor' no está definido.")
         except Exception as e:
             self.status_label.configure(text=f"Error inesperado: {e}")
 
