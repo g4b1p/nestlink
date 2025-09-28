@@ -7,6 +7,9 @@ import conexion_servidor
 customtkinter.set_appearance_mode("System")
 customtkinter.set_default_color_theme("blue")
 
+# Definición del color celeste/azul vibrante para la aplicación
+CELESTE_COLOR = "#3498DB" 
+
 class LoginApp(customtkinter.CTk):
     def __init__(self):
         super().__init__()
@@ -106,29 +109,71 @@ class LoginApp(customtkinter.CTk):
         
         # --- Widgets dentro del Marco ---
         
-        # Título
+        # Título (Celeste y fuente grande)
         self.label = customtkinter.CTkLabel(
             self.login_frame, 
             text="Inicio de Sesión", 
-            font=customtkinter.CTkFont(size=24, weight="bold")
+            text_color=(CELESTE_COLOR, "white"), # Celeste en modo Claro, Blanco en modo Oscuro
+            font=customtkinter.CTkFont(size=28, weight="bold")
         )
-        self.label.grid(row=1, column=0, pady=(40, 25), padx=25, sticky="ew")
+        self.label.grid(row=0, column=0, pady=(40, 15), padx=35, sticky="ew") # Row 0
 
-        # Entrada de Usuario
-        self.username_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text="Usuario", width=280)
-        self.username_entry.grid(row=2, column=0, pady=12, padx=35, sticky="ew")
+        # --- Etiqueta de Usuario (Celeste) ---
+        self.username_label = customtkinter.CTkLabel(
+            self.login_frame, 
+            text="Usuario", 
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            text_color=(CELESTE_COLOR, CELESTE_COLOR) # Celeste en ambos modos
+        )
+        self.username_label.grid(row=1, column=0, padx=35, sticky="w") # Row 1, alineado a la izquierda (w)
 
-        # Entrada de Contraseña
-        self.password_entry = customtkinter.CTkEntry(self.login_frame, placeholder_text="Contraseña", show="*", width=280)
-        self.password_entry.grid(row=3, column=0, pady=12, padx=35, sticky="ew")
+        # Entrada de Usuario (Bordes celestes)
+        self.username_entry = customtkinter.CTkEntry(
+            self.login_frame, 
+            placeholder_text="Ingrese su usuario", 
+            width=280,
+            height=40,                        # Altura incrementada
+            corner_radius=20,                 # Borde más redondo
+            border_color=CELESTE_COLOR        # Color de borde normal
+        )
+        self.username_entry.grid(row=2, column=0, pady=(0, 20), padx=35, sticky="ew") # Row 2
 
-        # Botón de Login
-        self.login_button = customtkinter.CTkButton(self.login_frame, text="Entrar", command=self.handle_login, width=280, height=40)
-        self.login_button.grid(row=4, column=0, pady=(20, 15), padx=35, sticky="ew")
+        # --- Etiqueta de Contraseña (Celeste) ---
+        self.password_label = customtkinter.CTkLabel(
+            self.login_frame, 
+            text="Contraseña", 
+            font=customtkinter.CTkFont(size=14, weight="bold"),
+            text_color=(CELESTE_COLOR, CELESTE_COLOR) # Celeste en ambos modos
+        )
+        self.password_label.grid(row=3, column=0, padx=35, sticky="w") # Row 3, alineado a la izquierda (w)
+
+        # Entrada de Contraseña (Bordes celestes)
+        self.password_entry = customtkinter.CTkEntry(
+            self.login_frame, 
+            placeholder_text="Ingrese su contraseña", 
+            show="*", 
+            width=280,
+            height=40,                        # Altura incrementada
+            corner_radius=20,                 # Borde más redondo
+            border_color=CELESTE_COLOR        # Color de borde normal
+        )
+        self.password_entry.grid(row=4, column=0, pady=(0, 20), padx=35, sticky="ew") # Row 4
+
+        # Botón de Login (No se pidió cambiar el color del texto del botón, se mantiene el blanco por defecto del tema)
+        self.login_button = customtkinter.CTkButton(
+            self.login_frame, 
+            text="Entrar", 
+            command=self.handle_login, 
+            width=280, 
+            height=45,
+            corner_radius=20,
+            font=customtkinter.CTkFont(size=18, weight="bold")
+        )
+        self.login_button.grid(row=5, column=0, pady=(10, 15), padx=35, sticky="ew") # Row 5
 
         # Etiqueta de Estado/Error
         self.status_label = customtkinter.CTkLabel(self.login_frame, text="", text_color="#FF4136", wraplength=280)
-        self.status_label.grid(row=5, column=0, pady=(10, 30), padx=25)
+        self.status_label.grid(row=6, column=0, pady=(10, 30), padx=25) # Row 6
 
 
     def handle_login(self):
