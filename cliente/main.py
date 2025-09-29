@@ -15,7 +15,7 @@ class LoginApp(customtkinter.CTk):
         super().__init__()
 
         # --- 1. Configuración de la Ventana Principal ---
-        self.geometry("800x500")
+        self.geometry("1200x600")
         self.title("Tu ERP - Iniciar Sesión")
         
         # Color estático de fondo para mimetizar los bordes de la imagen.
