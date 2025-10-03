@@ -4,3 +4,5 @@ bcrypt
 mysql-connector-python
 customtkinter
 Pillow
+pandas
+flask-cors
