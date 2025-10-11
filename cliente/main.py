@@ -1,19 +1,29 @@
 import customtkinter
 from PIL import Image
+from tkinter import messagebox
 import os
+
+# =================================================================
+# 1. IMPORTACIONES MODULARES (Ajustadas a tu estructura de carpetas)
+# =================================================================
+
+# Importamos las clases de módulo desde la carpeta 'modulos'
+from modulos.rrhh_module import RRHHModule 
+from modulos.ventas_module import VentasModule 
+from modulos.marketing_module import MarketingModule 
+from modulos.logistica_module import LogisticaModule 
+from modulos.produccion_module import ProduccionModule 
+
 import conexion_servidor
 
 # --- CONFIGURACIÓN GLOBAL ---
-# Establecemos la apariencia y el color por defecto de CTk
-customtkinter.set_appearance_mode("System")
+customtkinter.set_appearance_mode("Light") 
 customtkinter.set_default_color_theme("blue")
-
-# Definición del color celeste/azul vibrante para la aplicación
 CELESTE_COLOR = "#3498DB" 
 
 
 # =================================================================
-# 1. VENTANA PRINCIPAL - LOGIN
+# 2. VENTANA PRINCIPAL - LOGIN (Sin Cambios)
 # =================================================================
 
 class LoginApp(customtkinter.CTk):
@@ -200,17 +210,17 @@ class LoginApp(customtkinter.CTk):
                     # Obtiene el rol (sector) del usuario
                     user_role = response.get('role', 'Desconocido') 
                     
-                    # Navegación al módulo correspondiente
-                    self.open_module_window(response, user_role)
+                    # Usa after(100) para asegurar que el status_label se actualice antes de cambiar de ventana
+                    self.after(100, lambda: self.open_module_window(response, user_role))
                     
                 else:
-                    self.status_label.configure(text=response["message"])
+                    self.status_label.configure(text=response["message"], text_color="#FF4136")
             else:
-                self.status_label.configure(text="Error desconocido de conexión.")
+                self.status_label.configure(text="Error: Respuesta de conexión inválida.", text_color="#FF4136")
         
         except Exception as e:
-            print(f"Error en handle_login: {e}")
-            self.status_label.configure(text=f"Error inesperado al conectar.", text_color="red")
+            messagebox.showerror("Error de Conexión", f"No se pudo conectar al servidor de autenticación. Detalle: {e}")
+            self.status_label.configure(text="Error de conexión.", text_color="red")
 
     
     def open_module_window(self, user_info, role):
@@ -218,6 +228,7 @@ class LoginApp(customtkinter.CTk):
         
         # Mapeo del rol a la clase de la ventana del módulo
         module_map = {
+            # Las clases son importadas al inicio del archivo
             'RRHH': RRHHModule,
             'VENTAS': VentasModule,
             'MARKETING': MarketingModule,
@@ -233,125 +244,15 @@ class LoginApp(customtkinter.CTk):
             if self.module_window and self.module_window.winfo_exists():
                 self.module_window.destroy()
                 
+            # Instancia y abre la ventana del módulo (Pasa el login como master y la info del usuario)
             self.module_window = ModuleClass(self, user_info)
         else:
-            self.status_label.configure(text=f"Error: Rol '{role}' no soportado por la aplicación. Roles válidos: {list(module_map.keys())}", text_color="red")
+            messagebox.showerror("Error de Permisos", f"Rol '{role}' no soportado o no tiene permisos de acceso.")
+            self.status_label.configure(text=f"Error: Rol '{role}' no soportado.", text_color="red")
 
 
 # =================================================================
-# 2. CLASE BASE DE MÓDULOS DE APLICACIÓN 
-# =================================================================
-
-class BaseAppWindow(customtkinter.CTkToplevel):
-    """Ventana base para todos los módulos de la aplicación (Dashboard)."""
-    def __init__(self, master, title, user_info):
-        super().__init__(master)
-        self.master = master
-        self.user_info = user_info
-        
-        self.title(f"Nestlink ERP - Módulo de {title}")
-        
-        # --- LÓGICA DE CENTRADO DE VENTANA ---
-        window_width = 1000
-        window_height = 700
-        
-        self.update_idletasks()
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        
-        center_x = int(screen_width / 2 - window_width / 2)
-        center_y = int(screen_height / 2 - window_height / 2)
-        
-        # Aplicar geometría: (ancho)x(alto)+(pos_x)+(pos_y) para centrar
-        self.geometry(f"{window_width}x{window_height}+{center_x}+{center_y}") 
-        self.minsize(800, 600)
-        
-        self.grab_set() # Bloquea la interacción con la ventana de login
-        self.master.withdraw() # Oculta la ventana de login (Master)
-        
-        self.protocol("WM_DELETE_WINDOW", self.logout)
-        
-        # Configuración de layout principal
-        self.grid_rowconfigure(1, weight=1)  
-        self.grid_columnconfigure(0, weight=1)
-        
-        # ------------------- Header (Título y Botón de Logout) -------------------
-        header_frame = customtkinter.CTkFrame(self, fg_color="transparent")
-        header_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        header_frame.grid_columnconfigure(0, weight=1)
-
-        title_label = customtkinter.CTkLabel(header_frame, 
-                                            text=f"MÓDULO DE {title.upper()}", 
-                                            font=customtkinter.CTkFont(size=32, weight="bold"),
-                                            text_color=CELESTE_COLOR)
-        title_label.grid(row=0, column=0, padx=20, sticky="w")
-        
-        # Botón de cierre de sesión
-        self.logout_button = customtkinter.CTkButton(header_frame, 
-                                                    text="Cerrar Sesión", 
-                                                    command=self.logout, 
-                                                    fg_color="#E74C3C")
-        self.logout_button.grid(row=0, column=1, padx=20, sticky="e")
-        
-
-        # ------------------- Contenido Principal (Scrollable Frame) -------------------
-        self.main_content = customtkinter.CTkScrollableFrame(self)
-        self.main_content.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
-        self.main_content.grid_columnconfigure(0, weight=1)
-        
-        # Contenido inicial de ejemplo 
-        welcome_text = f"Hola, {user_info.get('username', 'Usuario')}. Estás en el módulo de {title}."
-        customtkinter.CTkLabel(self.main_content, text=welcome_text, font=customtkinter.CTkFont(size=20)).pack(padx=50, pady=50)
-
-
-    def logout(self):
-        """Cierra la ventana actual (módulo) y vuelve a mostrar el Login."""
-        self.master.deiconify() 
-        self.destroy() 
-
-
-# =================================================================
-# 3. CLASES ESPECÍFICAS POR MÓDULO
-# =================================================================
-
-class RRHHModule(BaseAppWindow):
-    """Módulo para Recursos Humanos."""
-    def __init__(self, master, user_info):
-        super().__init__(master, "Recursos Humanos", user_info)
-        # Contenido específico del módulo RRHH
-        customtkinter.CTkLabel(self.main_content, text="Panel de Gestión de Empleados y Nóminas").pack(pady=20)
-
-class VentasModule(BaseAppWindow):
-    """Módulo para Ventas."""
-    def __init__(self, master, user_info):
-        super().__init__(master, "Ventas", user_info)
-        # Contenido específico del módulo Ventas
-        customtkinter.CTkLabel(self.main_content, text="Panel de Pedidos y Clientes").pack(pady=20)
-
-class MarketingModule(BaseAppWindow):
-    """Módulo para Marketing."""
-    def __init__(self, master, user_info):
-        super().__init__(master, "Marketing", user_info)
-        # Contenido específico del módulo Marketing
-        customtkinter.CTkLabel(self.main_content, text="Panel de Campañas y Análisis").pack(pady=20)
-        
-class LogisticaModule(BaseAppWindow):
-    """Módulo para Logística."""
-    def __init__(self, master, user_info):
-        super().__init__(master, "Logística", user_info)
-        # Contenido específico del módulo Logística
-        customtkinter.CTkLabel(self.main_content, text="Panel de Almacenes y Envíos").pack(pady=20)
-
-class ProduccionModule(BaseAppWindow):
-    """Módulo para Producción."""
-    def __init__(self, master, user_info):
-        super().__init__(master, "Producción", user_info)
-        # Contenido específico del módulo Producción
-        customtkinter.CTkLabel(self.main_content, text="Panel de Órdenes de Producción y Materiales").pack(pady=20)
-
-
-# =================================================================
-# INICIO DE LA APLICACIÓN
+# 3. INICIO DE LA APLICACIÓN
 # =================================================================
 
 if __name__ == "__main__":
