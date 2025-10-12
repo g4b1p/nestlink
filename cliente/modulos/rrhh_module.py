@@ -3,12 +3,13 @@ from tkinter import filedialog, messagebox
 import os 
 import sys 
 from datetime import datetime 
-from PIL import Image # Necesario para cargar imágenes
+from PIL import Image 
 
 # Importamos la librería de conexión al servidor (ASUME QUE EXISTE) 
-import conexion_servidor
+import conexion_servidor # 🚨 Asegúrate de que esta librería exista
 
 # Importación limpia de la clase base y la variable de color 
+# 🚨 Asegúrate de que 'MAIN_BG_COLOR' esté definido en base_module.py como #ccdae7
 from base_module import BaseAppWindow, CELESTE_COLOR, SIDEBAR_COLOR, MAIN_BG_COLOR 
 
 # ================================================================= 
@@ -21,7 +22,7 @@ _base_path = os.path.join(os.path.dirname(__file__), '..', 'images')
 ICON_MODULO_RRHH = customtkinter.CTkImage(
     light_image=Image.open(os.path.join(_base_path, 'rrhh-logo.png')), 
     dark_image=Image.open(os.path.join(_base_path, 'rrhh-logo.png')), 
-    size=(30, 30) # Un tamaño adecuado para el header
+    size=(30, 30)
 )
 
 # ÍCONOS PARA LA SIDEBAR
@@ -83,7 +84,6 @@ class RRHHModule(BaseAppWindow):
             ("Registro de Capacitaciones", self._show_capacitaciones_view, self.ICON_CAPACITACION), 
         ] 
         
-        # Línea 87 limpia
         self._set_sidebar_buttons(buttons_config) 
         
         self._show_postulantes_view() 
@@ -100,7 +100,6 @@ class RRHHModule(BaseAppWindow):
         self.main_content.grid_rowconfigure(0, weight=0) # Header no se expande
         self.main_content.grid_rowconfigure(1, weight=1) # La tabla se expande verticalmente
         self.main_content.grid_columnconfigure(0, weight=1) # Se expande horizontalmente
-        # (self.main_content es ahora CTkFrame, no CTkScrollableFrame)
 
         # --- 1. Header de la Vista (Título, Botón Agregar y Filtro) --- 
         view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
@@ -122,30 +121,45 @@ class RRHHModule(BaseAppWindow):
         ) 
         self.postulantes_filtro.grid(row=0, column=1, padx=(0, 15), sticky="e") 
 
-        # Botón Agregar Candidatos 
+        # Botón Agregar Candidatos (🎨 VERDE #00bf63, con más padding)
         customtkinter.CTkButton(
             view_header_frame,
-            text="+ Agregar Postulante", # Cambiado a 'Postulante' para coincidir con la imagen
+            text="+ Agregar Postulante", 
             command=self._open_agregar_postulante_modal,
-            fg_color="#00bf63", # 🚨 NUEVO COLOR VERDE
-            hover_color="#00994f", # Un verde más oscuro al pasar el ratón
-            height=35, # Añade padding vertical visible
+            fg_color="#00bf63", 
+            hover_color="#00994f", 
+            height=35, 
             anchor="center"
         ).grid(row=0, column=2, sticky="e")
         
-        # --- 2. Área de la Tabla (CTkScrollableFrame que se expande) --- 
-        self.postulantes_tabla_frame = customtkinter.CTkScrollableFrame(
-            self.main_content,
+        # -----------------------------------------------------------------------
+        # 2. Área de la Tabla (Contenedor con Borde y ScrollableFrame anidado) 
+        # -----------------------------------------------------------------------
+        
+        # 🚨 PASO 1: Contenedor que maneja el Borde y el Fondo (#ccdae7)
+        self.table_border_container = customtkinter.CTkFrame(
+            self.main_content, # Padre: self.main_content (fila 1)
             corner_radius=5,
-            fg_color=MAIN_BG_COLOR,
-            border_color="#5b94c6",
-            border_width=2
-        ) 
-        # 🚨 CLAVE: sticky="nsew" asegura que llene la fila 1, la cual tiene weight=1
-        self.postulantes_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
-        self.postulantes_tabla_frame.grid_columnconfigure(0, weight=1) 
+            fg_color=MAIN_BG_COLOR, # Fondo MAIN_BG_COLOR (#ccdae7)
+            border_color="#5b94c6", # Borde exterior
+            border_width=2 # Hace visible el borde exterior
+        )
+        # CLAVE: sticky="nsew" en la fila 1 de self.main_content
+        self.table_border_container.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
+        self.table_border_container.grid_columnconfigure(0, weight=1)
+        self.table_border_container.grid_rowconfigure(0, weight=1)
 
-        self._load_postulantes_data(estado_filtro=self.postulantes_filtro.get()) 
+        # 🚨 PASO 2: CTkScrollableFrame (la tabla real) se anida dentro.
+        # Es transparente y SIN bordes, para que el borde se vea completo (soluciona el problema del scroll).
+        self.postulantes_tabla_frame = customtkinter.CTkScrollableFrame(
+            self.table_border_container, # Padre: El contenedor del borde
+            fg_color="transparent" # Fondo transparente
+        )
+        # CLAVE: El ScrollableFrame ocupa todo el contenedor del borde.
+        self.postulantes_tabla_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2) 
+        self.postulantes_tabla_frame.grid_columnconfigure(0, weight=1)
+
+        self._load_postulantes_data(estado_filtro=self.postulantes_filtro.get())
 
 
     def _load_postulantes_data(self, estado_filtro): 
@@ -155,14 +169,11 @@ class RRHHModule(BaseAppWindow):
 
         # --- Obtención de Datos DEL SERVIDOR --- 
         try: 
-            # 💡 USAR CONEXIÓN REAL: Asume que conexion_servidor.get_candidatos() 
-            # maneja el filtro internamente o lo ignora si es "Todos los estados"
             if estado_filtro == "Todos los estados":
-                 # Pasa un filtro vacío o None si el endpoint lo requiere para traer todos
-                 datos_postulantes = conexion_servidor.get_candidatos(None) 
+                datos_postulantes = conexion_servidor.get_candidatos(None) 
             else:
-                 datos_postulantes = conexion_servidor.get_candidatos(estado_filtro)
-                 
+                datos_postulantes = conexion_servidor.get_candidatos(estado_filtro)
+                
         except Exception as e: 
             messagebox.showerror("Error de Carga", f"No se pudieron cargar los postulantes: {e}") 
             datos_postulantes = []
@@ -176,8 +187,8 @@ class RRHHModule(BaseAppWindow):
 
         # --- Filas de Datos --- 
         if not datos_postulantes:
-             customtkinter.CTkLabel(self.postulantes_tabla_frame, text="No se encontraron postulantes con este filtro.", text_color="gray").grid(row=1, column=0, columnspan=5, padx=10, pady=20)
-             return
+            customtkinter.CTkLabel(self.postulantes_tabla_frame, text="No se encontraron postulantes con este filtro.", text_color="gray").grid(row=1, column=0, columnspan=5, padx=10, pady=20)
+            return
 
         for row, data in enumerate(datos_postulantes): 
             candidato_id = data.get("id", row + 1) 
@@ -225,14 +236,13 @@ class RRHHModule(BaseAppWindow):
         if nuevo_estado in ["Actualizar"]: return 
         
         try: 
-            # 💡 USAR CONEXIÓN REAL
             success = conexion_servidor.actualizar_estado_candidato_db(candidato_id, nuevo_estado) 
             if success: 
-                 messagebox.showinfo("Actualización Exitosa", f"Estado de Candidato ID:{candidato_id} actualizado a: {nuevo_estado}") 
+                messagebox.showinfo("Actualización Exitosa", f"Estado de Candidato ID:{candidato_id} actualizado a: {nuevo_estado}") 
             else:
-                 messagebox.showerror("Error", "No se pudo encontrar o actualizar el candidato en el servidor.")
+                messagebox.showerror("Error", "No se pudo encontrar o actualizar el candidato en el servidor.")
         except Exception as e: 
-              messagebox.showerror("Error", f"Error de comunicación al actualizar: {e}") 
+            messagebox.showerror("Error", f"Error de comunicación al actualizar: {e}") 
 
         self._load_postulantes_data(self.postulantes_filtro.get())
 
@@ -300,10 +310,8 @@ class RRHHModule(BaseAppWindow):
 
         # --- Obtención de Datos DEL SERVIDOR --- 
         try: 
-            # 💡 USAR CONEXIÓN REAL
-            # Se asume que get_empleados maneja el filtrado por nombre
             empleados = conexion_servidor.get_empleados(nombre_filtro) 
-                 
+                
         except Exception as e: 
             messagebox.showerror("Error de Carga", f"No se pudieron cargar los empleados: {e}") 
             empleados = []
@@ -316,9 +324,9 @@ class RRHHModule(BaseAppWindow):
 
         # --- Filas de Datos --- 
         if not empleados:
-             customtkinter.CTkLabel(self.empleados_tabla_frame, text="No se encontraron empleados activos con este filtro.", text_color="gray").grid(row=1, column=0, columnspan=3, padx=10, pady=20)
-             return
-             
+            customtkinter.CTkLabel(self.empleados_tabla_frame, text="No se encontraron empleados activos con este filtro.", text_color="gray").grid(row=1, column=0, columnspan=3, padx=10, pady=20)
+            return
+            
         for row, data in enumerate(empleados): 
             empleado_id = data.get("id", row + 1) 
             
@@ -375,6 +383,7 @@ class AgregarPostulanteModal(customtkinter.CTkToplevel):
 
         customtkinter.CTkButton(cv_frame, text="Subir CV...", command=self._seleccionar_cv, width=100).grid(row=0, column=1) 
 
+        # 🎨 Botón Guardar Postulante: Mantiene el color CELESTE
         customtkinter.CTkButton(self, text="Guardar Candidato", command=self._guardar_postulante, fg_color=CELESTE_COLOR).grid(row=4, column=0, pady=20) 
 
 
@@ -438,7 +447,6 @@ class HistorialCapacitacionesModal(customtkinter.CTkToplevel):
 
         # --- Obtención de Datos DEL SERVIDOR --- 
         try: 
-            # 💡 USAR CONEXIÓN REAL
             historial = conexion_servidor.get_capacitaciones_empleado(self.empleado_id) 
             
         except Exception as e: 
@@ -453,8 +461,8 @@ class HistorialCapacitacionesModal(customtkinter.CTkToplevel):
         
         # Filas 
         if not historial: 
-              customtkinter.CTkLabel(self.historial_frame, text="No hay historial registrado.", text_color="gray").grid(row=1, column=0, columnspan=2, padx=10, pady=20)
-              return
+            customtkinter.CTkLabel(self.historial_frame, text="No hay historial registrado.", text_color="gray").grid(row=1, column=0, columnspan=2, padx=10, pady=20)
+            return
             
         for row, data in enumerate(historial): 
             nombre_curso = data.get("curso", "") 
