@@ -6,6 +6,7 @@ import sys
 
 # Definición del color celeste/azul vibrante 
 CELESTE_COLOR = "#3498DB" # Color de acento para botones, etc.
+BORDO_COLOR = "#b26555"
 
 # NUEVOS COLORES DE FONDO INSPIRADOS EN EL DISEÑO
 MAIN_BG_COLOR = "#ccdae7" # 🚨 CAMBIO AQUÍ: Azul suave/gris para el fondo principal de la aplicación
@@ -158,10 +159,11 @@ class BaseAppWindow(customtkinter.CTkToplevel):
             header_frame,
             text="Cerrar Sesión",
             command=self.logout,
-            fg_color="#E74C3C",
+            fg_color=BORDO_COLOR,
             hover_color="#C0392B",
             text_color="white",
-            width=100
+            width=100,
+            height=35
         ).grid(row=0, column=3, padx=(0, INTERNAL_PADDING_X), pady=INTERNAL_PADDING_Y, sticky="e")
         
         

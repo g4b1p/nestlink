@@ -9,7 +9,7 @@ from PIL import Image # Necesario para cargar imágenes
 import conexion_servidor
 
 # Importación limpia de la clase base y la variable de color 
-from base_module import BaseAppWindow, CELESTE_COLOR, SIDEBAR_COLOR 
+from base_module import BaseAppWindow, CELESTE_COLOR, SIDEBAR_COLOR, MAIN_BG_COLOR 
 
 # ================================================================= 
 # CARGAR ÍCONOS DE MÓDULO (Para el Header y la Sidebar) 
@@ -103,11 +103,11 @@ class RRHHModule(BaseAppWindow):
         # (self.main_content es ahora CTkFrame, no CTkScrollableFrame)
 
         # --- 1. Header de la Vista (Título, Botón Agregar y Filtro) --- 
-        view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent") 
-        view_header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20) 
-        view_header_frame.grid_columnconfigure(0, weight=1) 
-        view_header_frame.grid_columnconfigure(1, weight=0) 
-        view_header_frame.grid_columnconfigure(2, weight=0) 
+        view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
+        view_header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
+        view_header_frame.grid_columnconfigure(0, weight=1)
+        view_header_frame.grid_columnconfigure(1, weight=0)
+        view_header_frame.grid_columnconfigure(2, weight=0)
         
         # Título 
         customtkinter.CTkLabel(view_header_frame, text="Gestión de Candidatos", font=customtkinter.CTkFont(size=24, weight="bold")).grid(row=0, column=0, sticky="w") 
@@ -123,19 +123,23 @@ class RRHHModule(BaseAppWindow):
         self.postulantes_filtro.grid(row=0, column=1, padx=(0, 15), sticky="e") 
 
         # Botón Agregar Candidatos 
-        customtkinter.CTkButton( 
-            view_header_frame, 
-            text="+ Agregar Candidato", 
-            command=self._open_agregar_postulante_modal, 
-            fg_color=CELESTE_COLOR, 
-            hover_color="#2980B9" 
-        ).grid(row=0, column=2, sticky="e") 
+        customtkinter.CTkButton(
+            view_header_frame,
+            text="+ Agregar Postulante", # Cambiado a 'Postulante' para coincidir con la imagen
+            command=self._open_agregar_postulante_modal,
+            fg_color="#00bf63", # 🚨 NUEVO COLOR VERDE
+            hover_color="#00994f", # Un verde más oscuro al pasar el ratón
+            height=35, # Añade padding vertical visible
+            anchor="center"
+        ).grid(row=0, column=2, sticky="e")
         
         # --- 2. Área de la Tabla (CTkScrollableFrame que se expande) --- 
         self.postulantes_tabla_frame = customtkinter.CTkScrollableFrame(
-            self.main_content, 
-            label_text="Lista de Candidatos", 
-            corner_radius=5
+            self.main_content,
+            corner_radius=5,
+            fg_color=MAIN_BG_COLOR,
+            border_color="#5b94c6",
+            border_width=2
         ) 
         # 🚨 CLAVE: sticky="nsew" asegura que llene la fila 1, la cual tiene weight=1
         self.postulantes_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
