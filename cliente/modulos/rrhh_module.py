@@ -5,11 +5,11 @@ import sys
 from datetime import datetime 
 
 # Importamos la librería de conexión al servidor (ASUME QUE EXISTE) 
-import conexion_servidor  
+import conexion_servidor
 
 # Importación limpia de la clase base y la variable de color 
-from base_module import BaseAppWindow, CELESTE_COLOR  
-
+from base_module import BaseAppWindow, CELESTE_COLOR, SIDEBAR_COLOR # Importar el nuevo color de la sidebar
+from PIL import Image # Necesario para cargar imágenes
 
 # ================================================================= 
 # FUNCIÓN DE UTILIDAD: Formateo de Fechas 
@@ -40,8 +40,20 @@ def _formatear_fecha(fecha_str):
 
 class RRHHModule(BaseAppWindow): 
     """Módulo para Recursos Humanos, gestionando Candidatos y Capacitaciones.""" 
-    ICON_POSTULANTE = None 
-    ICON_CAPACITACION = None 
+    # 🚨 CAMBIO A: Cargar Íconos Usando la Ruta Relativa
+    _base_path = os.path.join(os.path.dirname(__file__), '..', 'images')
+    
+    # Redimensionamos las imágenes a un tamaño de ícono (ej. 30x30)
+    ICON_POSTULANTE = customtkinter.CTkImage(
+        light_image=Image.open(os.path.join(_base_path, 'gestión-postulantes.png')), 
+        dark_image=Image.open(os.path.join(_base_path, 'gestión-postulantes.png')), 
+        size=(30, 30)
+    ) 
+    ICON_CAPACITACION = customtkinter.CTkImage(
+        light_image=Image.open(os.path.join(_base_path, 'registro-capacitaciones.png')), 
+        dark_image=Image.open(os.path.join(_base_path, 'registro-capacitaciones.png')), 
+        size=(30, 30)
+    ) 
 
     def __init__(self, master, user_info): 
         
