@@ -29,6 +29,7 @@ try:
         dark_image=Image.open(os.path.join(_base_path, 'logo-nestlink.png')),
         size=(180, 80) # Un tamaño más grande para mostrar logo+texto
     )
+    
 except FileNotFoundError:
     print("Advertencia: No se encontró 'logo-nestlink.png'. Usando texto.")
     NESTLINK_LOGO = None
