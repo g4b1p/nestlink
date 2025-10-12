@@ -322,7 +322,7 @@ class AgregarPostulanteModal(customtkinter.CTkToplevel):
 
         self.grid_columnconfigure(0, weight=1) 
         
-        customtkinter.CTkLabel(self, text="Datos del Candidato", font=customtkinter.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=20) 
+        customtkinter.CTkLabel(self, text="Datos del Postulante", font=customtkinter.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=20) 
         
         self.nombre_entry = customtkinter.CTkEntry(self, placeholder_text="Nombre Completo", width=350) 
         self.nombre_entry.grid(row=1, column=0, pady=10) 
