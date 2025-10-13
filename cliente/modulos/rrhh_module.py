@@ -96,10 +96,10 @@ class RRHHModule(BaseAppWindow):
         """Muestra la interfaz para la gestión y listado de postulantes/candidatos.""" 
         self._clear_main_content() 
         
-        # 🚨 CONFIGURACIÓN CLAVE: Asegura que la tabla (fila 1) ocupe todo el espacio.
-        self.main_content.grid_rowconfigure(0, weight=0) # Header no se expande
-        self.main_content.grid_rowconfigure(1, weight=1) # La tabla se expande verticalmente
-        self.main_content.grid_columnconfigure(0, weight=1) # Se expande horizontalmente
+        # 🚨 CONFIGURACIÓN CLAVE: La tabla (fila 1) se expande vertical y horizontalmente.
+        self.main_content.grid_rowconfigure(0, weight=0)
+        self.main_content.grid_rowconfigure(1, weight=1)
+        self.main_content.grid_columnconfigure(0, weight=1)
 
         # --- 1. Header de la Vista (Título, Botón Agregar y Filtro) --- 
         view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
@@ -108,7 +108,6 @@ class RRHHModule(BaseAppWindow):
         view_header_frame.grid_columnconfigure(1, weight=0)
         view_header_frame.grid_columnconfigure(2, weight=0)
         
-        # Título 
         customtkinter.CTkLabel(view_header_frame, text="Gestión de Candidatos", font=customtkinter.CTkFont(size=24, weight="bold")).grid(row=0, column=0, sticky="w") 
         
         # Filtro (CTkOptionMenu) 
@@ -121,7 +120,7 @@ class RRHHModule(BaseAppWindow):
         ) 
         self.postulantes_filtro.grid(row=0, column=1, padx=(0, 15), sticky="e") 
 
-        # Botón Agregar Candidatos (🎨 VERDE #00bf63, con más padding)
+        # Botón Agregar Candidatos
         customtkinter.CTkButton(
             view_header_frame,
             text="+ Agregar Postulante", 
@@ -133,37 +132,69 @@ class RRHHModule(BaseAppWindow):
         ).grid(row=0, column=2, sticky="e")
         
         # -----------------------------------------------------------------------
-        # 2. Área de la Tabla (Contenedor con Borde y ScrollableFrame anidado) 
+        # 2. Área de la Tabla (Contenedor con Borde, Cabecera FIJA y ScrollableFrame) 
         # -----------------------------------------------------------------------
         
-        # 🚨 PASO 1: Contenedor que maneja el Borde y el Fondo (#ccdae7)
+        # PASO 1: Contenedor que maneja el Borde (Fila 1 del main_content)
         self.table_border_container = customtkinter.CTkFrame(
-            self.main_content, # Padre: self.main_content (fila 1)
+            self.main_content, 
             corner_radius=5,
-            fg_color=MAIN_BG_COLOR, # Fondo MAIN_BG_COLOR (#ccdae7)
-            border_color="#5b94c6", # Borde exterior
-            border_width=2 # Hace visible el borde exterior
+            fg_color=MAIN_BG_COLOR, 
+            border_color="#5b94c6", 
+            border_width=2 
         )
-        # CLAVE: sticky="nsew" en la fila 1 de self.main_content
         self.table_border_container.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
+        
         self.table_border_container.grid_columnconfigure(0, weight=1)
-        self.table_border_container.grid_rowconfigure(0, weight=1)
+        self.table_border_container.grid_rowconfigure(0, weight=0) # Cabecera fija
+        self.table_border_container.grid_rowconfigure(1, weight=1) # Cuerpo scrollable
 
-        # 🚨 PASO 2: CTkScrollableFrame (la tabla real) se anida dentro.
-        # Es transparente y SIN bordes, para que el borde se vea completo (soluciona el problema del scroll).
-        self.postulantes_tabla_frame = customtkinter.CTkScrollableFrame(
-            self.table_border_container, # Padre: El contenedor del borde
-            fg_color="transparent" # Fondo transparente
+        columnas = ["Nombre", "Email", "Estado", "Fecha Post.", "Acciones"]
+        NUM_COLUMNAS_DATOS = len(columnas)
+        
+        # 🚨 PASO 2: Frame para la CABECERA FIJA (row=0 del table_border_container)
+        self.header_fixed_frame = customtkinter.CTkFrame(
+            self.table_border_container,
+            fg_color="#5b94c6", # Color Azul de la Cabecera
+            corner_radius=0
         )
-        # CLAVE: El ScrollableFrame ocupa todo el contenedor del borde.
-        self.postulantes_tabla_frame.grid(row=0, column=0, sticky="nsew", padx=2, pady=2) 
-        self.postulantes_tabla_frame.grid_columnconfigure(0, weight=1)
+        # Ojo con el padding para evitar que se coma el borde.
+        self.header_fixed_frame.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0)) 
+        
+        # CLAVE A: COMPENSACIÓN SCROLLBAR (Columna extra con minsize=17, sin peso)
+        # Esto reserva el espacio que usará el scrollbar en el frame de abajo.
+        self.header_fixed_frame.grid_columnconfigure(NUM_COLUMNAS_DATOS, weight=0, minsize=17) 
+        
+        # BUCLE DE CONFIGURACIÓN Y ETIQUETAS DEL ENCABEZADO
+        for i, col_name in enumerate(columnas):
+            # CLAVE B: Pesos de columna idénticos a los del cuerpo
+            self.header_fixed_frame.grid_columnconfigure(i, weight=(1 if i < 4 else 0)) 
+            customtkinter.CTkLabel(
+                self.header_fixed_frame, 
+                text=col_name, 
+                font=customtkinter.CTkFont(weight="bold", size=13),
+                text_color="white" 
+            ).grid(row=0, column=i, padx=10, pady=8, sticky="w")
+        
+        # 🚨 PASO 3: CTkScrollableFrame (la tabla de datos) (row=1 del table_border_container)
+        self.postulantes_tabla_frame = customtkinter.CTkScrollableFrame(
+            self.table_border_container, 
+            fg_color="transparent" 
+        )
+        self.postulantes_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2)) 
+        
+        # CLAVE C: Configuramos las columnas del cuerpo para que coincidan con la cabecera.
+        # Esto es crucial para la alineación horizontal.
+        for i in range(len(columnas)):
+            self.postulantes_tabla_frame.grid_columnconfigure(i, weight=(1 if i < 4 else 0)) 
 
+        # Finalmente, cargamos los datos
         self._load_postulantes_data(estado_filtro=self.postulantes_filtro.get())
 
 
     def _load_postulantes_data(self, estado_filtro): 
-        """Carga datos del servidor (BD) y construye la tabla.""" 
+        """Carga datos del servidor (BD) y construye las filas de datos.""" 
+        # Solo destruye los WIDGETS DE DATOS dentro del ScrollableFrame
         for widget in self.postulantes_tabla_frame.winfo_children(): 
             widget.destroy() 
 
@@ -177,32 +208,33 @@ class RRHHModule(BaseAppWindow):
         except Exception as e: 
             messagebox.showerror("Error de Carga", f"No se pudieron cargar los postulantes: {e}") 
             datos_postulantes = []
-
-        # --- Cabecera de la Tabla --- 
-        columnas = ["Nombre", "Email", "Estado", "Fecha Post.", "Acciones"] 
-        for i, col_name in enumerate(columnas): 
-            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=col_name, font=customtkinter.CTkFont(weight="bold")).grid(row=0, column=i, padx=10, pady=5, sticky="w") 
-            # Peso a las primeras 4 columnas de datos para que ocupen el ancho
-            self.postulantes_tabla_frame.grid_columnconfigure(i, weight=(1 if i < 4 else 0)) 
-
+        
         # --- Filas de Datos --- 
         if not datos_postulantes:
-            customtkinter.CTkLabel(self.postulantes_tabla_frame, text="No se encontraron postulantes con este filtro.", text_color="gray").grid(row=1, column=0, columnspan=5, padx=10, pady=20)
+            customtkinter.CTkLabel(self.postulantes_tabla_frame, text="No se encontraron postulantes con este filtro.", text_color="gray").grid(row=0, column=0, columnspan=5, padx=10, pady=20)
             return
 
+        PAD_UNIFORME_Y = 5 # Padding vertical para centrado visual
+        
+        # 🚨 CORRECCIÓN DEL ATRIBUTO ERROR: Accede a self.postulantes_filtro
+        try:
+             estados_menu = list(self.postulantes_filtro.cget("values"))[1:]
+        except:
+             estados_menu = ["Recibido", "En revisión", "Entrevista agendada", "Contratado", "Descartado", "En proceso de selección"]
+
         for row, data in enumerate(datos_postulantes): 
+            row_index = row # La primera fila de datos es la fila 0
             candidato_id = data.get("id", row + 1) 
             
-            # Datos de las columnas 0, 1 y 3
             items = [data.get("nombre", "N/A"), data.get("email", "N/A"), _formatear_fecha(data.get("fecha_post", "N/A"))]
             
             # 1. Nombre (Col 0)
-            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=items[0]).grid(row=row + 1, column=0, padx=10, pady=5, sticky="w")
+            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=items[0]).grid(row=row_index, column=0, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+            
             # 2. Email (Col 1)
-            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=items[1]).grid(row=row + 1, column=1, padx=10, pady=5, sticky="w")
+            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=items[1]).grid(row=row_index, column=1, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
             
             # 3. Columna Estado (CTkOptionMenu) (Columna 2) 
-            estados_menu = list(self.postulantes_filtro.cget("values"))[1:] 
             estado_menu = customtkinter.CTkOptionMenu( 
                 self.postulantes_tabla_frame, 
                 values=estados_menu, 
@@ -210,10 +242,10 @@ class RRHHModule(BaseAppWindow):
                 width=180 
             ) 
             estado_menu.set(data.get("estado", "Recibido")) 
-            estado_menu.grid(row=row + 1, column=2, padx=10, pady=5, sticky="w") 
+            estado_menu.grid(row=row_index, column=2, padx=10, pady=PAD_UNIFORME_Y, sticky="w") 
             
             # 4. Fecha Post. (Col 3) 
-            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=items[2]).grid(row=row + 1, column=3, padx=10, pady=5, sticky="w") 
+            customtkinter.CTkLabel(self.postulantes_tabla_frame, text=items[2]).grid(row=row_index, column=3, padx=10, pady=PAD_UNIFORME_Y, sticky="w") 
             
             # 5. Columna Acciones (Botón Ver CV) (Columna 4) 
             ver_cv_btn = customtkinter.CTkButton( 
@@ -224,7 +256,7 @@ class RRHHModule(BaseAppWindow):
                 fg_color="gray", 
                 hover_color="gray50" 
             ) 
-            ver_cv_btn.grid(row=row + 1, column=4, padx=10, pady=5, sticky="w") 
+            ver_cv_btn.grid(row=row_index, column=4, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
 
 
     def _filtrar_postulantes_tabla(self, estado_seleccionado): 
