@@ -292,6 +292,7 @@ class RRHHModule(BaseAppWindow):
     # VISTA 2: REGISTRO DE CAPACITACIONES 
     # ----------------------------------------------------------------- 
     
+    
     def _show_capacitaciones_view(self): 
         """Muestra la interfaz para el listado de empleados y su historial.""" 
         self._clear_main_content() 
@@ -328,12 +329,14 @@ class RRHHModule(BaseAppWindow):
         self.empleados_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
         self.empleados_tabla_frame.grid_columnconfigure(0, weight=1) 
 
-        self._load_empleados_data("") 
+        self._load_empleados_data("")
+    
 
     def _filtrar_empleados_tabla(self, event): 
         """Función que se llama al escribir en el buscador.""" 
         nombre_filtro = self.empleados_buscador.get() 
         self._load_empleados_data(nombre_filtro) 
+
 
     def _load_empleados_data(self, nombre_filtro): 
         """Carga empleados reales del servidor.""" 
@@ -374,7 +377,8 @@ class RRHHModule(BaseAppWindow):
                 command=lambda id=empleado_id, name=data.get("nombre", ""): self._show_historial_modal(id, name), 
                 width=100 
             ) 
-            ver_historial_btn.grid(row=row + 1, column=2, padx=10, pady=5, sticky="w") 
+            ver_historial_btn.grid(row=row + 1, column=2, padx=10, pady=5, sticky="w")
+
 
     def _show_historial_modal(self, empleado_id, nombre_empleado): 
         """Muestra el historial de capacitaciones de un empleado en un pop-up.""" 
