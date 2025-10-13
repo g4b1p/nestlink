@@ -294,14 +294,14 @@ class RRHHModule(BaseAppWindow):
     
     
     def _show_capacitaciones_view(self): 
-        """Muestra la interfaz para el listado de empleados y su historial.""" 
+        """Muestra la interfaz para el listado de empleados y su historial, con cabecera fija, borde y diseño alineado a Candidatos.""" 
         self._clear_main_content() 
         
-        # 🚨 CONFIGURACIÓN CLAVE: Asegura que la tabla (fila 1) ocupe todo el espacio.
-        self.main_content.grid_rowconfigure(0, weight=0) # Header no se expande
-        self.main_content.grid_rowconfigure(1, weight=1) # La tabla se expande verticalmente
+        # 🚨 CONFIGURACIÓN CLAVE: La tabla (fila 1) se expande vertical y horizontalmente.
+        self.main_content.grid_rowconfigure(0, weight=0)
+        self.main_content.grid_rowconfigure(1, weight=1)
         self.main_content.grid_columnconfigure(0, weight=1)
-        
+
         # --- 1. Header de la Vista (Título y Buscador) --- 
         view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent") 
         view_header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20) 
@@ -316,20 +316,66 @@ class RRHHModule(BaseAppWindow):
             placeholder_text="Buscar empleado por nombre...", 
             width=250, 
         ) 
-        self.empleados_buscador.grid(row=0, column=1, padx=(0, 15), sticky="e") 
+        self.empleados_buscador.grid(row=0, column=1, padx=(0, 0), sticky="e") 
         self.empleados_buscador.bind("<KeyRelease>", self._filtrar_empleados_tabla) 
 
-        # --- 2. Área de la Tabla de Empleados (CTkScrollableFrame que se expande) --- 
-        self.empleados_tabla_frame = customtkinter.CTkScrollableFrame(
+        # -----------------------------------------------------------------------
+        # 2. Área de la Tabla (Contenedor con Borde, Cabecera FIJA y ScrollableFrame) 
+        # -----------------------------------------------------------------------
+        
+        # PASO 1: Contenedor que maneja el Borde (border_width=2 y fg_color=MAIN_BG_COLOR)
+        self.table_border_container_capacitaciones = customtkinter.CTkFrame(
             self.main_content, 
-            label_text="Empleados Activos", 
-            corner_radius=5
-        ) 
-        # 🚨 CLAVE: sticky="nsew" asegura que llene la fila 1, la cual tiene weight=1.
-        self.empleados_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
-        self.empleados_tabla_frame.grid_columnconfigure(0, weight=1) 
+            corner_radius=5,
+            fg_color=MAIN_BG_COLOR, 
+            border_color="#5b94c6", 
+            border_width=2 
+        )
+        self.table_border_container_capacitaciones.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20)) 
+        
+        self.table_border_container_capacitaciones.grid_columnconfigure(0, weight=1)
+        self.table_border_container_capacitaciones.grid_rowconfigure(0, weight=0) # Cabecera fija
+        self.table_border_container_capacitaciones.grid_rowconfigure(1, weight=1) # Cuerpo scrollable (CLAVE)
 
-        self._load_empleados_data("")
+        columnas = ["Nombre", "Sector", "Acciones"]
+        NUM_COLUMNAS_DATOS = len(columnas)
+        
+        # 🚨 PASO 2: Frame para la CABECERA FIJA
+        self.header_fixed_frame_capacitaciones = customtkinter.CTkFrame(
+            self.table_border_container_capacitaciones,
+            fg_color="#5b94c6", 
+            corner_radius=0
+        )
+        # Márgenes de la Cabecera: padx=1, pady=(1, 0)
+        self.header_fixed_frame_capacitaciones.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0)) 
+        
+        # CLAVE A: COMPENSACIÓN SCROLLBAR (Columna extra con minsize=17)
+        self.header_fixed_frame_capacitaciones.grid_columnconfigure(NUM_COLUMNAS_DATOS, weight=0, minsize=17) 
+        
+        # BUCLE DE CONFIGURACIÓN Y ETIQUETAS DEL ENCABEZADO
+        for i, col_name in enumerate(columnas):
+            # Pesos de columna: Las primeras 2 se expanden (weight=1), la 3ra (Acciones) no (weight=0).
+            self.header_fixed_frame_capacitaciones.grid_columnconfigure(i, weight=(1 if i < 2 else 0)) 
+            customtkinter.CTkLabel(
+                self.header_fixed_frame_capacitaciones, 
+                text=col_name, 
+                font=customtkinter.CTkFont(weight="bold", size=13),
+                text_color="white" 
+            ).grid(row=0, column=i, padx=10, pady=8, sticky="w")
+        
+        # 🚨 PASO 3: CTkScrollableFrame (la tabla de datos) 
+        self.empleados_tabla_frame = customtkinter.CTkScrollableFrame(
+            self.table_border_container_capacitaciones, 
+            fg_color="transparent" 
+        )
+        # ✅ CLAVE: Márgenes del cuerpo (copiado de Candidatos): padx=2, pady=(0, 2)
+        self.empleados_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2)) 
+        
+        # Configuramos las columnas del cuerpo para que coincidan con la cabecera.
+        for i in range(len(columnas)):
+            self.empleados_tabla_frame.grid_columnconfigure(i, weight=(1 if i < 2 else 0)) 
+
+        self._load_empleados_data(nombre_filtro="")
     
 
     def _filtrar_empleados_tabla(self, event): 
@@ -339,45 +385,62 @@ class RRHHModule(BaseAppWindow):
 
 
     def _load_empleados_data(self, nombre_filtro): 
-        """Carga empleados reales del servidor.""" 
+        """Carga empleados reales del servidor y los inserta en la tabla, SIN dibujar la cabecera.""" 
         for widget in self.empleados_tabla_frame.winfo_children(): 
             widget.destroy() 
 
         # --- Obtención de Datos DEL SERVIDOR --- 
         try: 
             empleados = conexion_servidor.get_empleados(nombre_filtro) 
-                
+            
         except Exception as e: 
             messagebox.showerror("Error de Carga", f"No se pudieron cargar los empleados: {e}") 
             empleados = []
 
-        # --- Cabecera de la Tabla --- 
-        columnas = ["Nombre", "Sector", "Acciones"] 
-        for i, col_name in enumerate(columnas): 
-            self.empleados_tabla_frame.grid_columnconfigure(i, weight=(1 if i < 2 else 0)) 
-            customtkinter.CTkLabel(self.empleados_tabla_frame, text=col_name, font=customtkinter.CTkFont(weight="bold")).grid(row=0, column=i, padx=10, pady=5, sticky="w") 
-
-        # --- Filas de Datos --- 
+        # --- Filas de Datos (Cuerpo de la Tabla) --- 
+        PAD_UNIFORME_Y = 5
+        
         if not empleados:
-            customtkinter.CTkLabel(self.empleados_tabla_frame, text="No se encontraron empleados activos con este filtro.", text_color="gray").grid(row=1, column=0, columnspan=3, padx=10, pady=20)
-            return
+            # Fila 0 para el mensaje
+            customtkinter.CTkLabel(self.empleados_tabla_frame, text="No se encontraron empleados activos con este filtro.", text_color="gray").grid(row=0, column=0, columnspan=3, padx=10, pady=20)
+            last_widget_row = 0
             
-        for row, data in enumerate(empleados): 
-            empleado_id = data.get("id", row + 1) 
+        else:
+            for row, data in enumerate(empleados): 
+                row_index = row # La primera fila de datos es la fila 0
+                empleado_id = data.get("id", row + 1) 
+                
+                # Datos (Nombre, Sector) 
+                items = [data.get("nombre", ""), data.get("sector", "")] 
+                
+                # 1. Nombre (Col 0)
+                customtkinter.CTkLabel(self.empleados_tabla_frame, text=items[0]).grid(row=row_index, column=0, padx=10, pady=PAD_UNIFORME_Y, sticky="w") 
+                
+                # 2. Sector (Col 1)
+                customtkinter.CTkLabel(self.empleados_tabla_frame, text=items[1]).grid(row=row_index, column=1, padx=10, pady=PAD_UNIFORME_Y, sticky="w") 
+                
+                # 3. Columna Acciones (Ver Historial) (Col 2)
+                ver_historial_btn = customtkinter.CTkButton( 
+                    self.empleados_tabla_frame, 
+                    text="Ver Historial", 
+                    command=lambda id=empleado_id, name=data.get("nombre", ""): self._show_historial_modal(id, name), 
+                    width=100 
+                ) 
+                ver_historial_btn.grid(row=row_index, column=2, padx=10, pady=PAD_UNIFORME_Y, sticky="w") 
             
-            # Datos (Nombre, Sector) 
-            items = [data.get("nombre", ""), data.get("sector", "")] 
-            for col, item in enumerate(items): 
-                customtkinter.CTkLabel(self.empleados_tabla_frame, text=item).grid(row=row + 1, column=col, padx=10, pady=5, sticky="w") 
-            
-            # Columna Acciones (Ver Historial) 
-            ver_historial_btn = customtkinter.CTkButton( 
-                self.empleados_tabla_frame, 
-                text="Ver Historial", 
-                command=lambda id=empleado_id, name=data.get("nombre", ""): self._show_historial_modal(id, name), 
-                width=100 
-            ) 
-            ver_historial_btn.grid(row=row + 1, column=2, padx=10, pady=5, sticky="w")
+            last_widget_row = len(empleados) - 1
+
+        # 🚀 SOLUCIÓN CLAVE: Fila fantasma con peso 1 para forzar la expansión vertical.
+        fila_fantasma_index = last_widget_row + 1 if empleados else 1
+        
+        self.empleados_tabla_frame.grid_rowconfigure(fila_fantasma_index, weight=1) 
+        
+        # Agregamos un widget invisible para asegurar la aplicación del weight=1.
+        customtkinter.CTkLabel(self.empleados_tabla_frame, text="", height=0, fg_color="transparent").grid(
+            row=fila_fantasma_index, 
+            column=0, 
+            sticky="nsew"
+        )
 
 
     def _show_historial_modal(self, empleado_id, nombre_empleado): 
