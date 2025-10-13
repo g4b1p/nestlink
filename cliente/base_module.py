@@ -114,7 +114,7 @@ class BaseAppWindow(customtkinter.CTkToplevel):
     def _setup_header_bar(self, title, module_icon):
         """
         Crea la barra superior con el título del módulo, su ícono, la información del usuario 
-        y el botón de cerrar sesión.
+        y el botón de cerrar sesión, aplicando los estilos solicitados.
         """
         header_frame = customtkinter.CTkFrame(self.main_content_frame, fg_color=CONTENT_BG_COLOR, corner_radius=0)
         header_frame.grid(row=0, column=0, sticky="new", padx=0, pady=0) 
@@ -139,19 +139,21 @@ class BaseAppWindow(customtkinter.CTkToplevel):
             icon_container.grid_rowconfigure(0, weight=1)
         
         # 2. Título del Módulo (Al lado del ícono)
+        # ✅ CAMBIO 1: Color (#5b94c6) y Tamaño (size=22) del Título Principal
         customtkinter.CTkLabel(
             header_frame, 
             text=f"Módulo de {title}", 
-            font=customtkinter.CTkFont(size=18, weight="bold"),
-            text_color="#555555"
+            font=customtkinter.CTkFont(size=22, weight="bold"),
+            text_color="#5b94c6" 
         ).grid(row=0, column=1, sticky="w", padx=10, pady=INTERNAL_PADDING_Y) 
         
         # 3. Nombre de Usuario (Centro-Derecha)
         user_name = self.user_info.get('username', 'Usuario')
+        # ✅ CAMBIO 2: Color (#5b94c6) del Nombre de Usuario
         customtkinter.CTkLabel(
             header_frame, 
             text=user_name, 
-            text_color="#555555"
+            text_color="#5b94c6"
         ).grid(row=0, column=2, padx=10, pady=INTERNAL_PADDING_Y, sticky="e") 
         
         # 4. Botón Cerrar Sesión (Derecha)

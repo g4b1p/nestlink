@@ -108,8 +108,13 @@ class RRHHModule(BaseAppWindow):
         view_header_frame.grid_columnconfigure(1, weight=0)
         view_header_frame.grid_columnconfigure(2, weight=0)
         
-        customtkinter.CTkLabel(view_header_frame, text="Gestión de Candidatos", font=customtkinter.CTkFont(size=24, weight="bold")).grid(row=0, column=0, sticky="w") 
-        
+        customtkinter.CTkLabel(
+            view_header_frame, 
+            text="Gestión de Candidatos", 
+            font=customtkinter.CTkFont(size=20, weight="bold"), # Reducido de 24 a 20
+            text_color="#5b94c6" # Color azul
+        ).grid(row=0, column=0, sticky="w")
+            
         # Filtro (CTkOptionMenu) 
         estados = ["Todos los estados", "Recibido", "En revisión", "Entrevista agendada", "Contratado", "Descartado", "En proceso de selección"] 
         self.postulantes_filtro = customtkinter.CTkOptionMenu( 
@@ -308,7 +313,12 @@ class RRHHModule(BaseAppWindow):
         view_header_frame.grid_columnconfigure(0, weight=1) 
         view_header_frame.grid_columnconfigure(1, weight=0) 
         
-        customtkinter.CTkLabel(view_header_frame, text="Registro de Capacitaciones", font=customtkinter.CTkFont(size=24, weight="bold")).grid(row=0, column=0, sticky="w") 
+        customtkinter.CTkLabel(
+            view_header_frame, 
+            text="Registro de Capacitaciones", 
+            font=customtkinter.CTkFont(size=20, weight="bold"), # Reducido de 24 a 20
+            text_color="#5b94c6" # Color azul
+        ).grid(row=0, column=0, sticky="w")
         
         # Buscador (CTkEntry) 
         self.empleados_buscador = customtkinter.CTkEntry( 
