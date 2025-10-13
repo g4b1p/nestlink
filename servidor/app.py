@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import bcrypt
 import mysql.connector
+from werkzeug.utils import secure_filename
+from datetime import datetime
 
 # Importa tu archivo de base de datos
 from database import connect_db
@@ -20,6 +22,14 @@ DB_CONFIG = {
     'host': 'localhost',
     'database': 'nestlink_bd'
 }
+
+# Extensiones permitidas para el CV
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'docx'}
+
+def allowed_file(filename):
+    """Verifica si la extensión del archivo está permitida."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # =================================================================
 # RUTA: /login
@@ -40,14 +50,13 @@ def login():
              return jsonify({'message': 'Error de conexión con la BD'}), 500
              
         cursor = conn.cursor(dictionary=True)
-        sql = "SELECT * FROM usuarios WHERE nombre_usuario = %s" # Asumo que esta columna es correcta para 'usuarios'
+        sql = "SELECT * FROM usuarios WHERE nombre_usuario = %s"
         cursor.execute(sql, (username,))
         user = cursor.fetchone()
         cursor.close()
 
         if not user: return jsonify({'message': 'Usuario no encontrado'}), 401
 
-        # NOTA: Debes asegurarte de que 'contrasena_hash' contenga el hash de bcrypt
         hashed_password = user['contrasena_hash'].encode('utf-8')
         if bcrypt.checkpw(password.encode('utf-8'), hashed_password):
             return jsonify({
@@ -74,6 +83,74 @@ def login():
 # RUTAS DEL MÓDULO DE RECURSOS HUMANOS
 # =================================================================
 
+# -----------------------------------------------------------------
+# NUEVA RUTA: POST /api/candidatos (Añadir nuevo candidato)
+# -----------------------------------------------------------------
+@app.route('/api/candidatos', methods=['POST'])
+def add_candidato():
+    """Recibe los datos del formulario (multipart/form-data) y el archivo CV."""
+    conn = None
+    file_save_path = None
+    cv_path = None
+    
+    # 1. Obtener datos del formulario (request.form) y archivo (request.files)
+    nombre = request.form.get('nombre')
+    email = request.form.get('email')
+    cv_file = request.files.get('cv_file') # Nombre del campo esperado del cliente
+    
+    # Validaciones básicas
+    if not nombre or not email:
+        return jsonify({"message": "Nombre y email son obligatorios"}), 400
+
+    try:
+        if cv_file and cv_file.filename != '':
+            if allowed_file(cv_file.filename):
+                # 2. Guardar el archivo en el sistema de archivos
+                filename = secure_filename(cv_file.filename)
+                # Creamos un nombre único: (timestamp)_(nombre original)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{timestamp}_{filename}"
+                
+                file_save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+                cv_file.save(file_save_path)
+                
+                # Guardamos solo el nombre único del archivo para la BD
+                cv_path = unique_filename
+            else:
+                 return jsonify({"message": "Tipo de archivo CV no permitido (solo PDF, PNG, JPG, JPEG, DOCX)"}), 400
+        
+        # 3. Conectar a la BD e Insertar el candidato
+        conn = connect_db(DB_CONFIG)
+        if not conn: 
+            if file_save_path and os.path.exists(file_save_path): os.remove(file_save_path)
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+
+        cursor = conn.cursor()
+        
+        # Insertamos el candidato con el cv_path (que puede ser NULL si no subió archivo)
+        sql = """
+            INSERT INTO candidatos (nombre, email, etapa_proceso, fecha_postulacion, cv_path)
+            VALUES (%s, %s, %s, CURDATE(), %s)
+        """
+        # El estado inicial siempre será 'Recibido'
+        cursor.execute(sql, (nombre, email, "Recibido", cv_path))
+        conn.commit()
+        
+        return jsonify({"message": "Candidato registrado exitosamente"}), 201
+
+    except Exception as e:
+        print(f"Error al agregar candidato: {e}")
+        # Si la inserción a BD falla o hay otro error, borrar el archivo guardado (si existe)
+        if file_save_path and os.path.exists(file_save_path):
+             os.remove(file_save_path)
+        return jsonify({"message": "Error al procesar el registro del candidato"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+# -----------------------------------------------------------------
+# RUTA: GET /api/candidatos (Obtener lista de candidatos)
+# -----------------------------------------------------------------
 @app.route('/api/candidatos', methods=['GET'])
 def get_candidatos_list():
     """Obtiene la lista de candidatos/postulantes."""
@@ -104,6 +181,9 @@ def get_candidatos_list():
             conn.close()
 
 
+# -----------------------------------------------------------------
+# RUTA: PUT /api/candidatos/<id> (Actualizar estado)
+# -----------------------------------------------------------------
 @app.route('/api/candidatos/<int:postulante_id>', methods=['PUT'])
 def update_postulante_state(postulante_id):
     """Actualiza la etapa_proceso de un candidato por ID."""
@@ -136,6 +216,9 @@ def update_postulante_state(postulante_id):
             conn.close()
 
 
+# -----------------------------------------------------------------
+# RUTA: GET /api/empleados
+# -----------------------------------------------------------------
 @app.route('/api/empleados', methods=['GET'])
 def get_empleados_list():
     """Obtiene la lista de empleados."""
@@ -165,7 +248,9 @@ def get_empleados_list():
         if conn and conn.is_connected():
             conn.close()
 
-# NOTA: La lógica de capacitaciones asume la existencia de tablas auxiliares.
+# -----------------------------------------------------------------
+# RUTA: GET /api/empleados/<id>/capacitaciones
+# -----------------------------------------------------------------
 @app.route('/api/empleados/<int:empleado_id>/capacitaciones', methods=['GET'])
 def get_employee_capacitaciones(empleado_id):
     """Obtiene el historial de capacitaciones de un empleado específico."""
@@ -195,20 +280,18 @@ def get_employee_capacitaciones(empleado_id):
             conn.close()
 
 
-# =================================================================
-# RUTA: /api/candidatos/<id>/cv (PARA DESCARGAR/VER CV)
-# =================================================================
+# -----------------------------------------------------------------
+# RUTA: GET /api/candidatos/<id>/cv (PARA DESCARGAR/VER CV)
+# -----------------------------------------------------------------
 @app.route('/api/candidatos/<int:candidato_id>/cv', methods=['GET'])
 def get_candidato_cv(candidato_id):
     """Busca la ruta del CV en la BD y lo sirve al navegador."""
     conn = None
     try:
-        # 🟢 CORRECCIÓN CLAVE: Usamos connect_db, igual que en las otras rutas
         conn = connect_db(DB_CONFIG)
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor(dictionary=True)
-        # 🟢 CORRECCIÓN: Usamos %s como marcador de posición para MySQL (no ?)
         cursor.execute("SELECT cv_path FROM candidatos WHERE id_candidato = %s", (candidato_id,))
         resultado = cursor.fetchone()
         cursor.close()
@@ -216,19 +299,15 @@ def get_candidato_cv(candidato_id):
         if not resultado or not resultado['cv_path']:
             return jsonify({"message": f"CV no encontrado para candidato ID: {candidato_id} (Path no definido en BD)"}), 404
 
-        # El resultado['cv_path'] es el nombre del archivo (ej: 'cv_1.pdf')
         filename = resultado['cv_path']
 
-        # 3. Usar send_from_directory para enviar el archivo
-        # UPLOAD_FOLDER debe ser el directorio definido al inicio (data/cvs)
         return send_from_directory(
             directory=UPLOAD_FOLDER,
             path=filename,
-            as_attachment=False # False para mostrarlo en el navegador
+            as_attachment=False
         )
         
     except FileNotFoundError:
-        # Esto ocurre si el archivo existe en la BD pero no en la carpeta data/cvs
         return jsonify({"message": f"El archivo '{filename}' no existe en el servidor (Carpeta: {UPLOAD_FOLDER})."}), 404
     except mysql.connector.Error as err:
         print(f"Error de base de datos al buscar CV: {err}")
