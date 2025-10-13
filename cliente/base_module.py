@@ -27,11 +27,17 @@ try:
         dark_image=Image.open(os.path.join(_base_path, 'logo-nestlink.png')),
         size=(180, 80)
     )
+    USER_ICON = customtkinter.CTkImage(
+        light_image=Image.open(os.path.join(_base_path, 'login-user.png')),
+        dark_image=Image.open(os.path.join(_base_path, 'login-user.png')),
+        size=(25, 25) # Ajustar tamaño del icono
+    )
     
 except FileNotFoundError:
     print("Advertencia: No se encontró 'logo-nestlink.png'. Usando texto.")
     NESTLINK_LOGO = None
-    NESTLINK_LOGO_FULL = None  
+    NESTLINK_LOGO_FULL = None
+    USER_ICON = None
 
 class BaseAppWindow(customtkinter.CTkToplevel): 
     """Ventana base para todos los módulos de la aplicación (Dashboard).""" 
@@ -114,7 +120,7 @@ class BaseAppWindow(customtkinter.CTkToplevel):
     def _setup_header_bar(self, title, module_icon):
         """
         Crea la barra superior con el título del módulo, su ícono, la información del usuario 
-        y el botón de cerrar sesión, aplicando los estilos solicitados.
+        y el botón de cerrar sesión.
         """
         header_frame = customtkinter.CTkFrame(self.main_content_frame, fg_color=CONTENT_BG_COLOR, corner_radius=0)
         header_frame.grid(row=0, column=0, sticky="new", padx=0, pady=0) 
@@ -124,10 +130,11 @@ class BaseAppWindow(customtkinter.CTkToplevel):
         
         header_frame.grid_columnconfigure(0, weight=0) # Ícono del Módulo
         header_frame.grid_columnconfigure(1, weight=1) # Título del Módulo (Expande)
-        header_frame.grid_columnconfigure(2, weight=0) # Usuario
-        header_frame.grid_columnconfigure(3, weight=0) # Botón Cerrar Sesión
+        header_frame.grid_columnconfigure(2, weight=0) # ✅ Nuevo: Ícono de Usuario
+        header_frame.grid_columnconfigure(3, weight=0) # ✅ Nuevo: Nombre de Usuario
+        header_frame.grid_columnconfigure(4, weight=0) # Botón Cerrar Sesión
         
-        # 1. Ícono del Módulo (Izquierda)
+        # 1. Ícono del Módulo (Izquierda) - [Sin cambios]
         if module_icon:
             icon_container = customtkinter.CTkFrame(header_frame, fg_color="transparent", width=40, height=40)
             icon_container.grid(row=0, column=0, sticky="w", padx=(INTERNAL_PADDING_X, 0), pady=INTERNAL_PADDING_Y)
@@ -138,8 +145,7 @@ class BaseAppWindow(customtkinter.CTkToplevel):
             icon_container.grid_columnconfigure(0, weight=1)
             icon_container.grid_rowconfigure(0, weight=1)
         
-        # 2. Título del Módulo (Al lado del ícono)
-        # ✅ CAMBIO 1: Color (#5b94c6) y Tamaño (size=22) del Título Principal
+        # 2. Título del Módulo - [Color y tamaño ya modificados]
         customtkinter.CTkLabel(
             header_frame, 
             text=f"Módulo de {title}", 
@@ -147,16 +153,27 @@ class BaseAppWindow(customtkinter.CTkToplevel):
             text_color="#5b94c6" 
         ).grid(row=0, column=1, sticky="w", padx=10, pady=INTERNAL_PADDING_Y) 
         
-        # 3. Nombre de Usuario (Centro-Derecha)
+        # -----------------------------------------------------------
+        # ✅ NUEVOS ELEMENTOS DEL LADO DERECHO
+        # -----------------------------------------------------------
+
+        # 3. Ícono de Usuario (Columna 2)
         user_name = self.user_info.get('username', 'Usuario')
-        # ✅ CAMBIO 2: Color (#5b94c6) del Nombre de Usuario
+        if USER_ICON:
+            customtkinter.CTkLabel(
+                header_frame, 
+                text="", 
+                image=USER_ICON
+            ).grid(row=0, column=2, padx=(10, 0), pady=INTERNAL_PADDING_Y, sticky="e") 
+
+        # 4. Nombre de Usuario (Columna 3)
         customtkinter.CTkLabel(
             header_frame, 
             text=user_name, 
             text_color="#5b94c6"
-        ).grid(row=0, column=2, padx=10, pady=INTERNAL_PADDING_Y, sticky="e") 
+        ).grid(row=0, column=3, padx=(5, 10), pady=INTERNAL_PADDING_Y, sticky="e") # Ajustado padx entre icono y nombre
         
-        # 4. Botón Cerrar Sesión (Derecha)
+        # 5. Botón Cerrar Sesión (Columna 4)
         customtkinter.CTkButton(
             header_frame,
             text="Cerrar Sesión",
@@ -166,7 +183,7 @@ class BaseAppWindow(customtkinter.CTkToplevel):
             text_color="white",
             width=100,
             height=35
-        ).grid(row=0, column=3, padx=(0, INTERNAL_PADDING_X), pady=INTERNAL_PADDING_Y, sticky="e")
+        ).grid(row=0, column=4, padx=(0, INTERNAL_PADDING_X), pady=INTERNAL_PADDING_Y, sticky="e")
         
         
     def logout(self): 
