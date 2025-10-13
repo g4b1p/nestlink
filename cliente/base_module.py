@@ -5,12 +5,12 @@ import os
 import sys
 
 # Definición del color celeste/azul vibrante 
-CELESTE_COLOR = "#3498DB" # Color de acento para botones, etc.
+CELESTE_COLOR = "#5b94c6" # Color de acento para botones, etc.
 BORDO_COLOR = "#b26555"
 
 # NUEVOS COLORES DE FONDO INSPIRADOS EN EL DISEÑO
 MAIN_BG_COLOR = "#ccdae7" # 🚨 CAMBIO AQUÍ: Azul suave/gris para el fondo principal de la aplicación
-SIDEBAR_COLOR = "#3A669A" # Azul oscuro/opaco para la barra lateral
+SIDEBAR_COLOR = "#5b94c6" # Azul oscuro/opaco para la barra lateral
 CONTENT_BG_COLOR = "white" # Color blanco para el área de contenido (tablas)
 
 # DEFINIMOS EL LOGO DE NESTLINK
