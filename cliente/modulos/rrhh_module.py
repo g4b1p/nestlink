@@ -76,17 +76,32 @@ class RRHHModule(BaseAppWindow):
 
 
     def __init__(self, master, user_info): 
-        
+    
         super().__init__(master, "Recursos Humanos", user_info) 
         
-        buttons_config = [ 
+        # 🚨 CORRECCIÓN 1: Usar una variable de instancia (self.button_config) en lugar de una local (buttons_config).
+        self.button_config = [ 
             ("Gestión de Candidatos", self._show_postulantes_view, self.ICON_POSTULANTE), 
             ("Registro de Capacitaciones", self._show_capacitaciones_view, self.ICON_CAPACITACION), 
-        ] 
+        ]
         
-        self._set_sidebar_buttons(buttons_config) 
+        # 🚨 CORRECCIÓN 2: La inicialización de active_view debe usar self.button_config.
+        if self.button_config:
+            # Establece el texto del primer botón como la vista activa por defecto.
+            self.active_view = self.button_config[0][0]
         
-        self._show_postulantes_view() 
+        # Esto construye la barra lateral y aplica los estilos activo/inactivo.
+        self._set_sidebar_buttons(self.button_config)
+        
+        # ❌ ELIMINAR ESTA LÍNEA: La vista se cargará en el bloque siguiente, y si existe
+        # era redundante con el código anterior.
+        # self._show_postulantes_view() 
+        
+        # 🚨 CORRECCIÓN 3: Llamar a la función de la primera vista para que la tabla aparezca.
+        # Esta línea ahora es la única responsable de mostrar la interfaz al inicio.
+        if self.button_config and self.button_config[0][1]:
+            # Ejecuta la función asociada al primer botón (self._show_postulantes_view).
+            self.button_config[0][1]()
 
     # ----------------------------------------------------------------- 
     # VISTA 1: GESTIÓN DE POSTULANTES (CANDIDATOS) 

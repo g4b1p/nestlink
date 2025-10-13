@@ -109,7 +109,9 @@ class BaseAppWindow(customtkinter.CTkToplevel):
         # self.main_content: Marco transparente dentro del área blanca para las vistas
         self.main_content = customtkinter.CTkFrame(self.white_content_area, fg_color="transparent") 
         self.main_content.grid(row=0, column=0, sticky="nsew") 
-        self.main_content.grid_columnconfigure(0, weight=1) 
+        self.main_content.grid_columnconfigure(0, weight=1)
+        
+        self.active_view = None 
         
         # Contenido inicial de ejemplo 
         welcome_text = f"Hola, {user_info.get('username', 'Usuario')}. Estás en el módulo de {title}." 
@@ -196,32 +198,75 @@ class BaseAppWindow(customtkinter.CTkToplevel):
 
     def _set_sidebar_buttons(self, config): 
         """ 
-        Crea los botones de navegación en la barra lateral basados en la configuración. 
+        Crea los botones de navegación en la barra lateral con estilos condicionales (activo/inactivo). 
         """ 
+        # Si es la primera vez que se carga, establece el primer elemento de la config como activo por defecto
+        if self.active_view is None and config:
+            self.active_view = config[0][0] # El texto del primer botón (ej: "Gestión de Candidatos")
+
         for btn_frame in self.sidebar_button_frames: 
             btn_frame.destroy() 
-        self.sidebar_button_frames.clear() 
+        self.sidebar_button_frames.clear()
 
         for i, (text, command, icon) in enumerate(config): 
             
-            btn_container_frame = customtkinter.CTkFrame(self.sidebar_frame, fg_color=SIDEBAR_COLOR, corner_radius=10)
+            is_active = (text == self.active_view)
+            
+            # --- Configuración de Colores ---
+            if is_active:
+                # ✅ ESTADO ACTIVO: Fondo blanco, texto negro
+                frame_fg_color = "white"
+                button_fg_color = "white"
+                text_color = "black"
+                hover_color = "white" # No cambia el color al hacer hover sobre el activo
+            else:
+                # ✅ ESTADO INACTIVO: Fondo sidebar_color, texto blanco, hover azul más oscuro
+                frame_fg_color = SIDEBAR_COLOR
+                button_fg_color = "transparent"
+                text_color = "white" 
+                hover_color = "#2A5380" # El hover que ya tenías
+            
+            
+            btn_container_frame = customtkinter.CTkFrame(
+                self.sidebar_frame, 
+                fg_color=frame_fg_color, # Color del frame/fondo
+                corner_radius=10
+            )
             btn_container_frame.grid(row=i + 1, column=0, padx=15, pady=5, sticky="ew")
             btn_container_frame.grid_columnconfigure(0, weight=1)
 
             button = customtkinter.CTkButton( 
                 btn_container_frame, 
                 text=text, 
-                command=command, 
+                # ✅ TAMAÑO DE LETRA MÁS GRANDE
+                font=customtkinter.CTkFont(size=16), 
+                
+                # Modificamos el comando para que actualice la vista activa antes de llamar a la función original
+                command=lambda cmd=command, txt=text: self._set_active_view(txt, cmd), 
+                
                 compound="left", 
                 image=icon if icon else None, 
                 anchor="w",
-                fg_color="transparent",
-                text_color="white",   
-                hover_color="#2A5380"  
+                fg_color=button_fg_color,
+                text_color=text_color, 
+                hover_color=hover_color 
             ) 
             button.grid(row=0, column=0, sticky="ew", padx=5, pady=5) 
-            self.sidebar_button_frames.append(btn_container_frame) 
-
+            self.sidebar_button_frames.append(btn_container_frame)
+            
+    def _set_active_view(self, view_name, original_command):
+        """
+        Establece la vista actual, repinta la barra lateral y ejecuta el comando original de la vista.
+        """
+        # Solo actualiza si la vista no es la misma (para evitar repintar innecesariamente)
+        if self.active_view != view_name:
+            self.active_view = view_name
+            # Repinta solo los botones para aplicar el nuevo estilo activo/inactivo
+            self._set_sidebar_buttons(self.button_config) 
+        
+        # Ejecuta el comando original asociado al botón (ej: self._show_postulantes_view)
+        original_command()
+    
 
     def _clear_main_content(self): 
         """ 
