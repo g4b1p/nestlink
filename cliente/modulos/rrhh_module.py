@@ -2,7 +2,8 @@ import customtkinter
 from tkinter import filedialog, messagebox 
 import os 
 import sys 
-from datetime import datetime 
+from datetime import datetime
+import webbrowser
 from PIL import Image 
 
 # Importamos la librería de conexión al servidor (ASUME QUE EXISTE) 
@@ -35,7 +36,7 @@ ICON_CAPACITACION = customtkinter.CTkImage(
     light_image=Image.open(os.path.join(_base_path, 'registro-capacitaciones.png')), 
     dark_image=Image.open(os.path.join(_base_path, 'registro-capacitaciones.png')), 
     size=(30, 30)
-) 
+)
 
 # ================================================================= 
 # FUNCIÓN DE UTILIDAD: Formateo de Fechas 
@@ -297,11 +298,25 @@ class RRHHModule(BaseAppWindow):
             messagebox.showerror("Error", f"Error de comunicación al actualizar: {e}") 
 
         self._load_postulantes_data(self.postulantes_filtro.get())
-
-    def _ver_cv_postulante(self, candidato_id): 
-        """Función que simula la descarga y visualización del CV.""" 
-        messagebox.showinfo("Ver CV", f"Llamada GET /candidatos/{candidato_id}/cv. Abriendo PDF simulado...") 
-
+    
+    
+    def _ver_cv_postulante(self, candidato_id):
+        """
+        Abre la URL del CV en el navegador para que el sistema operativo lo muestre,
+        llamando al nuevo endpoint del servidor Flask.
+        """
+        try:
+            # CONSTRUYE la URL que el navegador intentará abrir (ej: http://localhost:5000/api/candidatos/1/cv)
+            url_cv = f"{conexion_servidor.BASE_URL}/api/candidatos/{candidato_id}/cv"
+            
+            # USA la librería webbrowser para abrir esa URL
+            webbrowser.open_new(url_cv)
+            
+        except Exception as e:
+            # Esto solo se mostrará si hay un error en la construcción de la URL o en la ejecución de webbrowser
+            messagebox.showerror("Error al Abrir CV", f"No se pudo generar la URL para el CV del candidato ID:{candidato_id}. Error: {e}")
+    
+    
     def _open_agregar_postulante_modal(self): 
         """Abre la ventana modal (Toplevel) para añadir un nuevo postulante.""" 
         modal = AgregarPostulanteModal(self) 
