@@ -49,10 +49,11 @@ class LoginApp(customtkinter.CTk):
         
         try:
             self.bg_image_original = Image.open(image_path)
+            initial_size = (self.bg_image_original.width, self.bg_image_original.height)
             self.bg_image_ctk = customtkinter.CTkImage(
-                light_image=self.bg_image_original, 
-                dark_image=self.bg_image_original, 
-                size=(1, 1) 
+                light_image=self.bg_image_original,
+                dark_image=self.bg_image_original,
+                size=initial_size
             )
 
             self.bg_label = customtkinter.CTkLabel(
@@ -62,7 +63,7 @@ class LoginApp(customtkinter.CTk):
             )
             
             # La imagen se ancla a la parte superior y se expande.
-            self.bg_label.grid(row=0, column=0, sticky="new") 
+            self.bg_label.grid(row=0, column=0, sticky="nsew")
             self.bind("<Configure>", self._resize_image)
 
         except FileNotFoundError:
@@ -72,38 +73,41 @@ class LoginApp(customtkinter.CTk):
 
         # --- 3. Llamada al Panel de Login ---
         self.create_login_panel()
-        self.after(100, lambda: self._resize_image(None))
+        self.after(1, lambda: self._resize_image(None))
 
 
     def _resize_image(self, event):
         """
-        Redimensiona la imagen de fondo para el modo 'contain' (ver completa) 
-        y la alinea a la cima, manteniendo el aspecto ratio.
+        Redimensiona la imagen de fondo para el modo 'cover' (cubrir toda la ventana),
+        manteniendo el aspecto ratio.
         """
         if hasattr(self, 'bg_image_ctk') and hasattr(self, 'bg_image_original'):
+        
+            # Obtiene el tamaño actual de la ventana
             new_width = self.winfo_width() if event is None else event.width
             new_height = self.winfo_height() if event is None else event.height
-            
-            if new_width <= 0 or new_height <= 0:
-                return
-            
-            original_width, original_height = self.bg_image_original.size
-            
-            width_ratio = new_width / original_width
-            height_ratio = new_height / original_height
-            
-            # Modo 'contain' (el más pequeño factor de escala)
-            scale_factor = min(width_ratio, height_ratio)
-            
-            new_image_width = int(original_width * scale_factor)
-            new_image_height = int(original_height * scale_factor)
+        
+        if new_width <= 0 or new_height <= 0:
+            return
+        
+        original_width, original_height = self.bg_image_original.size
+        
+        width_ratio = new_width / original_width
+        height_ratio = new_height / original_height
+        
+        # CAMBIO CLAVE: Usamos max() para asegurar que la imagen cubra completamente
+        # al menos una dimensión, forzando el modo "cover" o "fill".
+        scale_factor = max(width_ratio, height_ratio) # <--- ¡Cambiado de min() a max()!
+        
+        new_image_width = int(original_width * scale_factor)
+        new_image_height = int(original_height * scale_factor)
 
-            if new_image_width == 0:
-                new_image_width = 1
-            if new_image_height == 0:
-                new_image_height = 1
+        if new_image_width == 0:
+            new_image_width = 1
+        if new_image_height == 0:
+            new_image_height = 1
 
-            self.bg_image_ctk.configure(size=(new_image_width, new_image_height))
+        self.bg_image_ctk.configure(size=(new_image_width, new_image_height))
 
 
     def create_login_panel(self):
