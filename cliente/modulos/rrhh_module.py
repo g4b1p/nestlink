@@ -45,22 +45,33 @@ ICON_CAPACITACION = customtkinter.CTkImage(
 
 def _formatear_fecha(fecha_str):
     """
-    Intenta limpiar y reformatear una cadena de fecha.
+    Limpia y reformatea una cadena/objeto de fecha desde el servidor.
+    Maneja NULL, None, el string de formato erróneo, y el objeto datetime.
     """
-    if not fecha_str:
+    # 1. Manejar valores nulos explícitos (MySQL NULL, Python None)
+    if fecha_str is None or fecha_str == "N/A":
         return "N/A"
 
-    try:
-        # Manejo del formato de error o placeholder
-        if '%%Y-%%m-%%d' in fecha_str:
-            return "Formato Pendiente"
+    # Convertir a string para procesar, si no lo es
+    fecha_str = str(fecha_str).strip()
 
-        # Asume que el formato correcto de la BD es 'YYYY-MM-DD' (con o sin tiempo)
+    # 2. Manejar el error de formato literal (si persiste a pesar de la corrección en app.py)
+    if fecha_str.startswith("%Y") or fecha_str.upper() == "NULL":
+        return "N/A (Sin fecha)"
+
+    try:
+        # 3. Manejar si el servidor envió un objeto datetime (lo más común en MySQL Connector)
+        if isinstance(fecha_str, datetime):
+            return fecha_str.strftime('%Y-%m-%d')
+        
+        # 4. Intentar parsear el string 'YYYY-MM-DD' o 'YYYY-MM-DD HH:MM:SS'
+        # Tomamos solo la primera parte por si incluye la hora
         fecha_obj = datetime.strptime(fecha_str.split()[0], '%Y-%m-%d')
         return fecha_obj.strftime('%Y-%m-%d')
 
     except ValueError:
-        return str(fecha_str)
+        # Si no puede parsear, devuelve una indicación clara
+        return "Formato Inválido"
 
 # =================================================================
 # CLASE ESPECÍFICA PARA RECURSOS HUMANOS

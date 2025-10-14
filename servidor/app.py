@@ -161,7 +161,7 @@ def get_candidatos_list():
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor(dictionary=True)
-        sql = "SELECT id_candidato AS id, nombre AS nombre, email, etapa_proceso AS estado, DATE_FORMAT(fecha_postulacion, '%%Y-%%m-%%d') AS fecha_post FROM candidatos"
+        sql = "SELECT id_candidato AS id, nombre AS nombre, email, etapa_proceso AS estado, DATE_FORMAT(fecha_postulacion, '%Y-%m-%d') AS fecha_post FROM candidatos"
         params = ()
         
         if estado_filtro and estado_filtro not in ["Todos los estados", ""]:
@@ -261,7 +261,7 @@ def get_employee_capacitaciones(empleado_id):
 
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT c.nombre_curso AS curso, DATE_FORMAT(ec.fecha_finalizacion, '%%Y-%%m-%%d') AS fecha
+            SELECT c.nombre_curso AS curso, DATE_FORMAT(ec.fecha_finalizacion, '%Y-%m-%d') AS fecha
             FROM empleado_capacitacion ec
             JOIN capacitaciones c ON ec.id_capacitacion = c.id_capacitacion
             WHERE ec.id_empleado = %s
