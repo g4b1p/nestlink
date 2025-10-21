@@ -146,3 +146,21 @@ def post_nuevo_candidato(nombre, email, cv_filepath):
         # Asegurarse de cerrar el puntero del archivo
         if file_pointer:
             file_pointer.close()
+
+def get_productos(estado_filtro="Todos los estados"):
+    """Obtiene la lista de productos desde el servidor, filtrando opcionalmente por estado."""
+    url = f"{BASE_URL}/api/productos" 
+    params = {}
+    if estado_filtro != "Todos los estados":
+        params = {'estado': estado_filtro}
+        
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        
+        return response.json() 
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error al obtener productos: {e}")
+        # En caso de error de conexión o API, devuelve una lista vacía.
+        return []

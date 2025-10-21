@@ -319,6 +319,67 @@ def get_candidato_cv(candidato_id):
         if conn and conn.is_connected():
             conn.close()
 
+# =================================================================
+# RUTAS DEL MÓDULO DE VENTAS
+# =================================================================
+
+# -----------------------------------------------------------------
+# RUTA: GET /api/productos (Obtener lista de productos)
+# -----------------------------------------------------------------
+@app.route('/api/productos', methods=['GET'])
+def get_productos_list():
+    """Obtiene la lista de productos, con opción a filtrar por estado."""
+    estado_filtro = request.args.get('estado')
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
+
+        cursor = conn.cursor(dictionary=True)
+        
+        # 🚨 NOTA IMPORTANTE: Los nombres de las columnas deben coincidir con tu tabla 'productos'
+        # Asumo que la tabla tiene las columnas: id_producto, nombre, estado, precio, stock, categoria
+        sql = """
+            SELECT 
+                id_producto AS id, 
+                nombre, 
+                estado, 
+                precio_unitario AS precio, 
+                stock, 
+                categoria 
+            FROM productos
+        """
+        params = ()
+        
+        if estado_filtro and estado_filtro not in ["Todos los estados", ""]:
+            sql += " WHERE estado = %s"
+            params = (estado_filtro,)
+            
+        sql += " ORDER BY nombre ASC" # Ordenar alfabéticamente
+        
+        cursor.execute(sql, params)
+        productos = cursor.fetchall()
+        
+        return jsonify(productos), 200
+
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al obtener productos: {err}")
+        return jsonify({"message": "Error al consultar la base de datos de productos"}), 500
+    except Exception as e:
+        print(f"Error inesperado al obtener productos: {e}")
+        return jsonify({"message": "Error interno del servidor"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+# -----------------------------------------------------------------
+# RUTA: POST /api/productos (Añadir nuevo producto - Placeholder)
+# -----------------------------------------------------------------
+@app.route('/api/productos', methods=['POST'])
+def add_producto():
+    # Esta ruta la implementaremos cuando trabajemos en el modal "Agregar Producto"
+    # Placeholder:
+    return jsonify({"message": "Ruta POST /api/productos no implementada aún"}), 501
 
 if __name__ == '__main__':
     # Creamos la carpeta UPLOAD_FOLDER por si acaso, antes de iniciar
