@@ -164,3 +164,21 @@ def get_productos(estado_filtro="Todos los estados"):
         print(f"Error al obtener productos: {e}")
         # En caso de error de conexión o API, devuelve una lista vacía.
         return []
+
+def update_producto(producto_id, data):
+    """Actualiza los datos de un producto por ID."""
+    url = f"{BASE_URL}/api/productos/{producto_id}"
+    
+    try:
+        response = requests.put(url, json=data)
+        response.raise_for_status() 
+        
+        return True, "Producto actualizado correctamente."
+
+    except requests.exceptions.HTTPError as e:
+        error_message = response.json().get('message', 'Error desconocido al actualizar.')
+        print(f"Error HTTP al actualizar producto: {e}")
+        return False, error_message
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al actualizar producto: {e}")
+        return False, f"Error de conexión con el servidor: {e}"

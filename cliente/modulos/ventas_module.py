@@ -115,7 +115,7 @@ class VentasModule(BaseAppWindow):
         ).grid(row=0, column=0, sticky="w")
 
         # Filtro de Estado (CTkOptionMenu)
-        estados = ["Todos los estados", "Listo para distribución", "En revisión de calidad", "En embalaje", "Agotado"]
+        estados = ["Todos los estados", "Listo para distribución", "En revisión de calidad", "En embalaje"]
         self.productos_filtro = customtkinter.CTkOptionMenu(
             view_header_frame,
             values=estados,
@@ -154,7 +154,7 @@ class VentasModule(BaseAppWindow):
         self.table_border_container.grid_rowconfigure(1, weight=1) # Cuerpo scrollable
 
         # Definición de las columnas de la tabla de productos
-        columnas = ["Nombre", "Estado", "Precio", "Stock", "Categoría", "Acciones"]
+        columnas = ["Nombre", "Estado", "Precio", "Stock", "Categoría", "Lote", "Acciones"]
         NUM_COLUMNAS_DATOS = len(columnas)
 
         # 🚨 PASO 2: Frame para la CABECERA FIJA
@@ -170,7 +170,7 @@ class VentasModule(BaseAppWindow):
 
         # BUCLE DE CONFIGURACIÓN Y ETIQUETAS DEL ENCABEZADO
         # Definimos los pesos de expansión de las columnas para alineación
-        column_weights = [3, 2, 1, 1, 2, 0] # Nombre expande más (3), Precio/Stock menos (1), Acciones no (0)
+        column_weights = [3, 2, 1, 1, 2, 1, 0] # Nombre expande más (3), Precio/Stock menos (1), Acciones no (0)
 
         for i, col_name in enumerate(columnas):
             self.header_fixed_frame.grid_columnconfigure(i, weight=column_weights[i])
@@ -247,7 +247,8 @@ class VentasModule(BaseAppWindow):
                 data.get("estado", "N/A"), 
                 precio_str, 
                 str(data.get("stock", 0)),
-                data.get("categoria", "N/A")
+                data.get("categoria", "N/A"),
+                data.get("lote", "N/A")
             ]
 
             # 1. Nombre (Col 0)
@@ -262,8 +263,6 @@ class VentasModule(BaseAppWindow):
                 color = "#800080"     # Púrpura/Violeta (Revisión)
             elif estado == "En embalaje":
                 color = "#E6A23C"     # Dorado/Naranja (Embalaje)
-            elif estado == "Agotado":
-                color = "#990000"     # Rojo Oscuro (Agotado/Crítico)
             else:
                 color = "gray"        # Gris (Otros estados)
             
@@ -283,17 +282,39 @@ class VentasModule(BaseAppWindow):
             # 5. Categoría (Col 4)
             customtkinter.CTkLabel(self.productos_tabla_frame, text=items[4]).grid(row=row_index, column=4, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
             
-            # 6. Columna Acciones (Botón Vender) (Columna 5)
+            # 6. 🚨 NUEVO: Lote (Col 5)
+            customtkinter.CTkLabel(self.productos_tabla_frame, text=items[5]).grid(row=row_index, column=5, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+
+            # 1. Creamos el Frame contenedor para los botones
+            actions_frame = customtkinter.CTkFrame(self.productos_tabla_frame, fg_color="transparent")
+            # 🚨 Colocamos el frame CONTENEDOR en la COLUMNA 5 de la TABLA PRINCIPAL
+            actions_frame.grid(row=row_index, column=6, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+
+            stock_val = int(data.get("stock", 0))
+
+            # 2. Botón EDITAR (Celeste/Azul)
+            editar_btn = customtkinter.CTkButton(
+                actions_frame, # <-- IMPORTANTE: Lo colocamos en actions_frame
+                text="Editar",
+                command=lambda id=producto_id, data=data: self._open_editar_producto_modal(id, data),
+                width=75,
+                fg_color="#5b94c6", 
+                hover_color="#3c6f9e", 
+            )
+            editar_btn.grid(row=0, column=0, padx=(0, 5), sticky="w") # Posición dentro de actions_frame
+            
+            # 3. Botón VENDER (Verde)
+            # 🚨 NOTA: Debes usar el color de venta, que definiste antes como #00bf63
             vender_btn = customtkinter.CTkButton(
-                self.productos_tabla_frame,
+                actions_frame, # <-- IMPORTANTE: Lo colocamos en actions_frame
                 text="Vender",
                 command=lambda id=producto_id, name=items[0]: self._open_vender_producto_modal(id, name),
-                width=80,
-                fg_color=CELESTE_COLOR,
-                hover_color="#3c6f9e", # Un azul más oscuro
-                state="normal" if stock_val > 0 else "disabled" # Deshabilitar si no hay stock
+                width=75, # Usamos el mismo ancho para que se vea uniforme
+                fg_color="#00bf63", 
+                hover_color="#00994f", 
+                state="normal" if stock_val > 0 else "disabled"
             )
-            vender_btn.grid(row=row_index, column=5, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+            vender_btn.grid(row=0, column=1, padx=(5, 0), sticky="w") # Posición dentro de actions_frame
             
             last_widget_row = row_index
 
@@ -319,14 +340,20 @@ class VentasModule(BaseAppWindow):
         messagebox.showinfo("Pendiente", "Se abrirá el modal para agregar un nuevo producto.")
         # modal = AgregarProductoModal(self)
         # modal.grab_set()
-        
+
     def _open_vender_producto_modal(self, producto_id, nombre_producto):
         """Abre la ventana modal (Toplevel) para registrar una venta."""
         # Se implementará en la siguiente iteración
         messagebox.showinfo("Pendiente", f"Se abrirá el modal para registrar la venta de: {nombre_producto}.")
         # modal = RegistrarVentaModal(self, producto_id, nombre_producto)
         # modal.grab_set()
-
+    
+    def _open_editar_producto_modal(self, producto_id, producto_data):
+        """Abre la ventana modal (Toplevel) para editar un producto existente."""
+        
+        # 🚨 NOTA: Pasamos la función de recarga de datos de la tabla principal.
+        modal = EditarProductoModal(self.master, producto_id, producto_data, self._show_productos_view) 
+        # El _show_productos_view recarga la tabla y vuelve a dibujar toda la vista.
 
     # -----------------------------------------------------------------
     # VISTA 2: PANEL DE RENDIMIENTO (Placeholder)
@@ -353,5 +380,166 @@ class VentasModule(BaseAppWindow):
     def _show_historial_view(self):
         self._clear_main_content()
         customtkinter.CTkLabel(self.main_content, text="Historial de Ventas (WIP)", font=customtkinter.CTkFont(size=20, weight="bold")).pack(padx=50, pady=50)
+
+# Archivo: ventas_module.py (Añadir al final del archivo)
+
+class EditarProductoModal(customtkinter.CTkToplevel):
+    def __init__(self, master, producto_id, producto_data, callback_reload):
+        super().__init__(master)
+        self.title(f"Editar Producto: {producto_data['nombre']}")
+        self.geometry("500x550")
+        self.transient(master) # Mantener el modal encima de la ventana principal
+        self.grab_set()        # Bloquear interacción con otras ventanas
+        
+        self.producto_id = producto_id
+        self.producto_data = producto_data
+        self.callback_reload = callback_reload # Función para recargar la tabla principal
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        main_frame = customtkinter.CTkFrame(self, fg_color=SIDEBAR_COLOR, corner_radius=0)
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        main_frame.grid_columnconfigure(0, weight=1)
+        
+        self._create_widgets(main_frame)
+
+    def _create_widgets(self, main_frame):
+        # Título
+        customtkinter.CTkLabel(main_frame, text="MODIFICAR DATOS DEL PRODUCTO", 
+                               font=customtkinter.CTkFont(size=18, weight="bold"),
+                               text_color="white").grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 10), sticky="n")
+
+        # Frame contenedor para inputs
+        form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_columnconfigure(1, weight=1)
+
+        row_num = 0
+
+        # Campo 1: Nombre (Solo lectura, ya que el ID no se debe cambiar)
+        customtkinter.CTkLabel(form_frame, text="Nombre:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_nombre = customtkinter.CTkEntry(form_frame, width=200)
+        self.entry_nombre.insert(0, self.producto_data['nombre'])
+        self.entry_nombre.configure(state="disabled", text_color="gray") # Deshabilitar edición
+        self.entry_nombre.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 2: Categoría (Solo lectura)
+        customtkinter.CTkLabel(form_frame, text="Categoría:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_categoria = customtkinter.CTkEntry(form_frame, width=200)
+        self.entry_categoria.insert(0, self.producto_data['categoria'])
+        self.entry_categoria.configure(state="disabled", text_color="gray") # Deshabilitar edición
+        self.entry_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        # Campo 3: Precio
+        customtkinter.CTkLabel(form_frame, text="Precio Unitario:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_precio = customtkinter.CTkEntry(form_frame, width=200)
+        self.entry_precio.insert(0, str(float(self.producto_data.get('precio', 0.00)))) # Usamos float para evitar el $
+        self.entry_precio.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 4: Stock
+        customtkinter.CTkLabel(form_frame, text="Stock:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_stock = customtkinter.CTkEntry(form_frame, width=200)
+        self.entry_stock.insert(0, str(self.producto_data['stock']))
+        self.entry_stock.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 5: Estado (OptionMenu)
+        customtkinter.CTkLabel(form_frame, text="Estado:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        estados_posibles = ["Listo para distribución", "En revisión de calidad", "En embalaje"]
+        self.option_estado = customtkinter.CTkOptionMenu(form_frame, values=estados_posibles, width=200)
+        self.option_estado.set(self.producto_data['estado'])
+        self.option_estado.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 6: Lote
+        customtkinter.CTkLabel(form_frame, text="Lote:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_lote = customtkinter.CTkEntry(form_frame, width=200)
+        # Asumimos que 'lote' es un campo que puede venir en los datos
+        self.entry_lote.insert(0, self.producto_data.get('lote', ''))
+        self.entry_lote.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        # Mensaje de error/éxito
+        self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
+        self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
+
+        # Frame de botones
+        btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
+        btn_frame.grid_columnconfigure((0, 1), weight=1)
+
+        # Botón Guardar
+        customtkinter.CTkButton(
+            btn_frame, 
+            text="Guardar Cambios", 
+            command=self._save_changes,
+            fg_color="#00bf63", # Verde
+            hover_color="#00994f"
+        ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
+
+        # Botón Cancelar
+        customtkinter.CTkButton(
+            btn_frame, 
+            text="Cancelar", 
+            command=self.destroy,
+            fg_color="#5b94c6", # Celeste
+            hover_color="#3c6f9e"
+        ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
+
+
+    def _save_changes(self):
+        """Valida los datos y envía la solicitud PUT al servidor."""
+        precio_raw = self.entry_precio.get().replace(',', '.')
+        stock_raw = self.entry_stock.get()
+        lote = self.entry_lote.get()
+        estado = self.option_estado.get()
+
+        # Validación
+        if not precio_raw or not stock_raw or not lote:
+            self.message_label.configure(text="Todos los campos editables son obligatorios.")
+            return
+
+        try:
+            precio = float(precio_raw)
+            if precio <= 0: raise ValueError
+        except ValueError:
+            self.message_label.configure(text="El precio debe ser un número positivo.")
+            return
+
+        try:
+            stock = int(stock_raw)
+            if stock < 0: raise ValueError
+        except ValueError:
+            self.message_label.configure(text="El stock debe ser un número entero no negativo.")
+            return
+
+        # Preparar los datos para enviar al servidor
+        update_data = {
+            "precio_unitario": precio, # Usamos el nombre de la columna de la BD (app.py lo espera)
+            "stock": stock,
+            "estado": estado,
+            "lote": lote
+        }
+
+        # Lógica de conexión (PUT)
+        try:
+            success, message = conexion_servidor.update_producto(self.producto_id, update_data)
+            
+            if success:
+                messagebox.showinfo("Éxito", message)
+                self.callback_reload() # Recargar la tabla principal
+                self.destroy()
+            else:
+                self.message_label.configure(text=f"Error al actualizar: {message}", text_color="red")
+
+        except Exception as e:
+            self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
+
+# --- Fin de la clase EditarProductoModal ---
 
 # --- Fin de VentasModule ---

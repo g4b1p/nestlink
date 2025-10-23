@@ -346,7 +346,8 @@ def get_productos_list():
                 estado, 
                 precio_unitario AS precio, 
                 stock, 
-                categoria 
+                categoria,
+                lote
             FROM productos
         """
         params = ()
@@ -390,3 +391,46 @@ if __name__ == '__main__':
         app.run(debug=True, port=5000)
     else:
         print("La aplicación no se pudo iniciar debido a un error de conexión con la base de datos.")
+
+@app.route('/api/productos/<int:producto_id>', methods=['PUT'])
+def update_producto(producto_id):
+    """Actualiza los campos editables de un producto por ID."""
+    data = request.get_json()
+    
+    # Campos que esperamos actualizar (NOMBRES DE COLUMNAS EN LA BD)
+    precio = data.get('precio_unitario')
+    stock = data.get('stock')
+    estado = data.get('estado')
+    lote = data.get('lote')
+
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
+
+        cursor = conn.cursor()
+        
+        sql = """
+            UPDATE productos 
+            SET precio_unitario = %s, stock = %s, estado = %s, lote = %s
+            WHERE id_producto = %s
+        """
+        params = (precio, stock, estado, lote, producto_id)
+        
+        cursor.execute(sql, params)
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Producto no encontrado o datos idénticos"}), 404
+        
+        return jsonify({"message": "Producto actualizado correctamente"}), 200
+
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al actualizar producto {producto_id}: {err}")
+        return jsonify({"message": "Error al actualizar en la base de datos"}), 500
+    except Exception as e:
+        print(f"Error inesperado al actualizar producto: {e}")
+        return jsonify({"message": "Error interno del servidor"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
