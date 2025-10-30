@@ -182,3 +182,21 @@ def update_producto(producto_id, data):
     except requests.exceptions.RequestException as e:
         print(f"Error de conexión al actualizar producto: {e}")
         return False, f"Error de conexión con el servidor: {e}"
+
+def create_producto(data):
+    """Crea un nuevo producto enviando una solicitud POST al servidor."""
+    url = f"{BASE_URL}/api/productos"
+    
+    try:
+        response = requests.post(url, json=data)
+        response.raise_for_status() 
+        
+        return True, "Producto registrado correctamente."
+
+    except requests.exceptions.HTTPError as e:
+        error_message = response.json().get('message', 'Error desconocido al registrar.')
+        print(f"Error HTTP al registrar producto: {e}")
+        return False, error_message
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al registrar producto: {e}")
+        return False, f"Error de conexión con el servidor: {e}"

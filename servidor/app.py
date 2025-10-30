@@ -338,7 +338,6 @@ def get_productos_list():
         cursor = conn.cursor(dictionary=True)
         
         # 🚨 NOTA IMPORTANTE: Los nombres de las columnas deben coincidir con tu tabla 'productos'
-        # Asumo que la tabla tiene las columnas: id_producto, nombre, estado, precio, stock, categoria
         sql = """
             SELECT 
                 id_producto AS id, 
@@ -374,24 +373,61 @@ def get_productos_list():
             conn.close()
 
 # -----------------------------------------------------------------
-# RUTA: POST /api/productos (Añadir nuevo producto - Placeholder)
+# RUTA: POST /api/productos (Registrar un nuevo producto)
 # -----------------------------------------------------------------
 @app.route('/api/productos', methods=['POST'])
-def add_producto():
-    # Esta ruta la implementaremos cuando trabajemos en el modal "Agregar Producto"
-    # Placeholder:
-    return jsonify({"message": "Ruta POST /api/productos no implementada aún"}), 501
+def create_producto():
+    """Inserta un nuevo producto en la tabla productos."""
+    data = request.get_json()
+    
+    nombre = data.get('nombre')
+    categoria = data.get('categoria')
+    precio = data.get('precio_unitario')
+    stock = data.get('stock')
+    estado = data.get('estado')
+    lote = data.get('lote')
 
-if __name__ == '__main__':
-    # Creamos la carpeta UPLOAD_FOLDER por si acaso, antes de iniciar
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
+    # Validación básica (aunque el cliente ya lo hizo, es vital en el servidor)
+    if not all([nombre, categoria, precio is not None, stock is not None, estado, lote]):
+        return jsonify({"message": "Faltan datos obligatorios para registrar el producto"}), 400
+
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
+
+        cursor = conn.cursor()
         
-    if connect_db(DB_CONFIG):
-        app.run(debug=True, port=5000)
-    else:
-        print("La aplicación no se pudo iniciar debido a un error de conexión con la base de datos.")
+        # 1. Verificar si ya existe un producto con el mismo nombre (ejemplo de unicidad)
+        cursor.execute("SELECT id_producto FROM productos WHERE nombre = %s", (nombre,))
+        if cursor.fetchone():
+            return jsonify({"message": f"Ya existe un producto registrado con el nombre '{nombre}'."}), 409 # Conflict
 
+        # 2. Insertar el nuevo producto
+        sql = """
+            INSERT INTO productos (nombre, categoria, precio_unitario, stock, estado, lote)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        params = (nombre, categoria, precio, stock, estado, lote)
+        
+        cursor.execute(sql, params)
+        conn.commit()
+        
+        return jsonify({"message": "Producto registrado correctamente", "id": cursor.lastrowid}), 201 # Created
+
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al registrar producto: {err}")
+        return jsonify({"message": "Error al registrar en la base de datos"}), 500
+    except Exception as e:
+        print(f"Error inesperado al registrar producto: {e}")
+        return jsonify({"message": "Error interno del servidor"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+# -----------------------------------------------------------------
+# RUTA: PUT /api/productos/<id> (Actualizar datos de un producto)
+# -----------------------------------------------------------------
 @app.route('/api/productos/<int:producto_id>', methods=['PUT'])
 def update_producto(producto_id):
     """Actualiza los campos editables de un producto por ID."""
@@ -434,3 +470,15 @@ def update_producto(producto_id):
     finally:
         if conn and conn.is_connected():
             conn.close()
+
+
+if __name__ == '__main__':
+    # Creamos la carpeta UPLOAD_FOLDER por si acaso, antes de iniciar
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+        
+    if connect_db(DB_CONFIG):
+        # Asegúrate de ejecutar el servidor en el modo correcto
+        app.run(debug=True, port=5000)
+    else:
+        print("La aplicación no se pudo iniciar debido a un error de conexión con la base de datos.")
