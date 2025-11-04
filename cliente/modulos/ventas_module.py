@@ -582,8 +582,16 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
         
         # Campo 2: Categoría
         customtkinter.CTkLabel(form_frame, text="Categoría:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_categoria = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        CATEGORIAS_OPTIONS = ["Chocolates", "Alimentos", "Bebidas", "Lácteos"]
+        self.option_categoria_var = customtkinter.StringVar(value=CATEGORIAS_OPTIONS[0])
+    
+        self.option_categoria = customtkinter.CTkOptionMenu(
+            form_frame, 
+            values=CATEGORIAS_OPTIONS, 
+            variable=self.option_categoria_var, # Vincula el OptionMenu a la variable
+            width=200
+        )
+        self.option_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
         row_num += 1
 
         # Campo 3: Precio
