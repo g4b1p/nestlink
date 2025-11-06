@@ -200,3 +200,46 @@ def create_producto(data):
     except requests.exceptions.RequestException as e:
         print(f"Error de conexión al registrar producto: {e}")
         return False, f"Error de conexión con el servidor: {e}"
+
+# Archivo: conexion_servidor.py (REEMPLAZAR esta función)
+
+def register_sale(sale_data):
+    """
+    Registra una nueva venta en el servidor (POST /api/ventas).
+    Espera sale_data = {"producto_id": id, "cantidad_vendida": cant, "id_cliente": id}
+    """
+    url = f"{BASE_URL}/api/ventas"
+    
+    # 🚨 CAMBIO: El payload ahora incluye el id_cliente
+    payload = {
+        "producto_id": sale_data["producto_id"],
+        "cantidad": sale_data["cantidad_vendida"],
+        "id_cliente": sale_data["id_cliente"] # <-- ID de cliente real
+    }
+    
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return True, response.json().get("message", "Venta registrada con éxito.")
+    # ... (El resto del manejo de errores sigue igual) ...
+    except requests.exceptions.HTTPError as e:
+        try:
+            error_message = response.json().get('message', f'Error HTTP {response.status_code}.')
+        except requests.exceptions.JSONDecodeError:
+            error_message = f"Error {response.status_code}: {response.text}"
+        print(f"Error HTTP al registrar venta: {error_message}")
+        return False, error_message
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al registrar venta: {e}")
+        return False, f"Error de conexión con el servidor: {e}"
+
+def get_clientes():
+    """Obtiene la lista de clientes (ID y Nombre) desde el servidor."""
+    url = f"{BASE_URL}/api/clientes"
+    try:
+        response = requests.get(url)
+        response.raise_for_status() 
+        return response.json() 
+    except requests.exceptions.RequestException as e:
+        print(f"Error al obtener clientes: {e}")
+        return []

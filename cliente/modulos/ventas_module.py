@@ -303,18 +303,17 @@ class VentasModule(BaseAppWindow):
             )
             editar_btn.grid(row=0, column=0, padx=(0, 5), sticky="w") # Posición dentro de actions_frame
             
-            # 3. Botón VENDER (Verde)
-            # 🚨 NOTA: Debes usar el color de venta, que definiste antes como #00bf63
             vender_btn = customtkinter.CTkButton(
-                actions_frame, # <-- IMPORTANTE: Lo colocamos en actions_frame
+                actions_frame,
                 text="Vender",
-                command=lambda id=producto_id, name=items[0]: self._open_vender_producto_modal(id, name),
-                width=75, # Usamos el mismo ancho para que se vea uniforme
+                # 🚨 CAMBIO: Pasamos el stock_val al comando
+                command=lambda id=producto_id, name=data.get("nombre", "N/A"), stock=stock_val: self._open_vender_producto_modal(id, name, stock),
+                width=75,
                 fg_color="#00bf63", 
                 hover_color="#00994f", 
-                state="normal" if stock_val > 0 else "disabled"
+                state="normal" if stock_val > 0 else "disabled" # Usa el stock_val
             )
-            vender_btn.grid(row=0, column=1, padx=(5, 0), sticky="w") # Posición dentro de actions_frame
+            vender_btn.grid(row=0, column=1, padx=(5, 0), sticky="w")
             
             last_widget_row = row_index
 
@@ -339,12 +338,18 @@ class VentasModule(BaseAppWindow):
         # 🚨 NOTA: Pasamos la función de recarga de datos de la tabla principal.
         modal = AgregarProductoModal(self.master, self._show_productos_view)
 
-    def _open_vender_producto_modal(self, producto_id, nombre_producto):
+    def _open_vender_producto_modal(self, producto_id, nombre_producto, stock_actual):
         """Abre la ventana modal (Toplevel) para registrar una venta."""
-        # Se implementará en la siguiente iteración
-        messagebox.showinfo("Pendiente", f"Se abrirá el modal para registrar la venta de: {nombre_producto}.")
-        # modal = RegistrarVentaModal(self, producto_id, nombre_producto)
-        # modal.grab_set()
+        
+        # Llama a la nueva clase modal y le pasa los datos necesarios
+        modal = RegistrarVentaModal(
+            self.master, 
+            producto_id, 
+            nombre_producto, 
+            stock_actual, 
+            self._show_productos_view # La función de recarga
+        )
+        modal.grab_set()
     
     def _open_editar_producto_modal(self, producto_id, producto_data):
         """Abre la ventana modal (Toplevel) para editar un producto existente."""
@@ -702,6 +707,148 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
 
         except Exception as e:
             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
+
+
+# Archivo: ventas_module.py (REEMPLAZAR esta clase)
+
+class RegistrarVentaModal(customtkinter.CTkToplevel):
+    def __init__(self, master, producto_id, nombre_producto, stock_actual, callback_reload):
+        super().__init__(master)
+        self.title(f"Registrar Venta: {nombre_producto}")
+        self.geometry("400x400") # Un poco más alto para el nuevo campo
+        self.transient(master)
+        self.grab_set()
+        
+        self.producto_id = producto_id
+        self.nombre_producto = nombre_producto
+        self.stock_actual = stock_actual
+        self.callback_reload = callback_reload
+
+        # 1. Diccionario para mapear Nombre de Cliente -> ID de Cliente
+        self.clientes_map = {}
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        main_frame = customtkinter.CTkFrame(self, fg_color="#5b94c6", corner_radius=0)
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        main_frame.grid_columnconfigure(0, weight=1)
+        
+        # 2. Cargar clientes ANTES de crear widgets
+        self._load_clientes()
+        self._create_widgets(main_frame)
+
+    def _load_clientes(self):
+        """Obtiene los clientes del servidor y los guarda en el mapa."""
+        try:
+            clientes_lista = conexion_servidor.get_clientes()
+            if not clientes_lista:
+                # Manejar caso sin clientes (usar un placeholder)
+                self.clientes_map = {"(Sin clientes registrados)": 0}
+                return
+
+            # Creamos el mapa: {'Nombre Cliente': id_cliente}
+            for cliente in clientes_lista:
+                self.clientes_map[cliente['nombre']] = cliente['id_cliente']
+                
+        except Exception as e:
+            print(f"Error cargando clientes en modal: {e}")
+            self.clientes_map = {"(Error al cargar)": 0}
+
+    def _create_widgets(self, main_frame):
+        # ... (Título, form_frame, Producto, Stock Disponible - Sin cambios) ...
+        
+        customtkinter.CTkLabel(main_frame, text="REGISTRAR VENTA", 
+                               font=customtkinter.CTkFont(size=18, weight="bold"),
+                               text_color="white").grid(row=0, column=0, padx=20, pady=(20, 10), sticky="n")
+        form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_columnconfigure(1, weight=1)
+        row_num = 0
+
+        customtkinter.CTkLabel(form_frame, text="Producto:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        customtkinter.CTkLabel(form_frame, text=self.nombre_producto, anchor="w", font=customtkinter.CTkFont(weight="bold")).grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        customtkinter.CTkLabel(form_frame, text="Stock Disponible:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        customtkinter.CTkLabel(form_frame, text=f"{self.stock_actual} unidades", anchor="w", text_color="yellow", font=customtkinter.CTkFont(weight="bold")).grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        # 3. 🚨 NUEVO: Campo Cliente (OptionMenu)
+        customtkinter.CTkLabel(form_frame, text="Cliente:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        
+        lista_nombres_clientes = list(self.clientes_map.keys()) # Obtenemos solo los nombres
+        self.option_cliente_var = customtkinter.StringVar(value=lista_nombres_clientes[0])
+        
+        self.option_cliente = customtkinter.CTkOptionMenu(
+            form_frame, 
+            values=lista_nombres_clientes, 
+            variable=self.option_cliente_var,
+            width=200
+        )
+        self.option_cliente.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        # Campo Cantidad (ahora es Fila 4)
+        customtkinter.CTkLabel(form_frame, text="Cantidad a Vender:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_cantidad = customtkinter.CTkEntry(form_frame, width=200)
+        self.entry_cantidad.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        self.entry_cantidad.focus()
+        row_num += 1
+        
+        # ... (message_label y btn_frame sin cambios) ...
+        self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
+        self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
+        btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
+        btn_frame.grid_columnconfigure((0, 1), weight=1)
+        customtkinter.CTkButton(btn_frame, text="Confirmar Venta", command=self._confirm_sale, fg_color="#00bf63", hover_color="#00994f").grid(row=0, column=0, padx=(0, 10), sticky="ew")
+        customtkinter.CTkButton(btn_frame, text="Cancelar", command=self.destroy, fg_color="#B22222", hover_color="#8B0000").grid(row=0, column=1, padx=(10, 0), sticky="ew")
+
+
+    def _confirm_sale(self):
+        cantidad_raw = self.entry_cantidad.get()
+        
+        # 4. 🚨 OBTENER EL ID DEL CLIENTE SELECCIONADO
+        nombre_cliente_seleccionado = self.option_cliente_var.get()
+        id_cliente_seleccionado = self.clientes_map.get(nombre_cliente_seleccionado)
+
+        # Validación de Cliente
+        if not id_cliente_seleccionado or id_cliente_seleccionado == 0:
+            self.message_label.configure(text="Error: Cliente no válido o no seleccionado.")
+            return
+            
+        # ... (Validación de Cantidad y Stock sin cambios) ...
+        try:
+            cantidad = int(cantidad_raw)
+            if cantidad <= 0: raise ValueError
+        except ValueError:
+            self.message_label.configure(text="La cantidad debe ser un número entero positivo.")
+            return
+        if cantidad > self.stock_actual:
+            self.message_label.configure(text=f"Stock insuficiente. Solo quedan {self.stock_actual} unidades.")
+            return
+
+        # 5. 🚨 PREPARAR EL PAYLOAD CON EL ID DEL CLIENTE
+        sale_data = {
+            "producto_id": self.producto_id,
+            "cantidad_vendida": cantidad,
+            "id_cliente": id_cliente_seleccionado # <-- Enviamos el ID real
+        }
+
+        # ... (Llamada a conexion_servidor.register_sale sin cambios) ...
+        try:
+            success, message = conexion_servidor.register_sale(sale_data)
+            if success:
+                messagebox.showinfo("Venta Registrada", message)
+                self.callback_reload()
+                self.destroy()
+            else:
+                self.message_label.configure(text=f"Error al registrar venta: {message}", text_color="red")
+        except Exception as e:
+            self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
+
 
 # --- Fin de la clase AgregarProductoModal ---
 

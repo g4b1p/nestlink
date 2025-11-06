@@ -4,6 +4,7 @@ import bcrypt
 import mysql.connector
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from decimal import Decimal
 
 # Importa tu archivo de base de datos
 from database import connect_db
@@ -467,6 +468,125 @@ def update_producto(producto_id):
     except Exception as e:
         print(f"Error inesperado al actualizar producto: {e}")
         return jsonify({"message": "Error interno del servidor"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/api/ventas', methods=['POST'])
+def registrar_venta():
+    """
+    Endpoint para registrar una nueva venta y actualizar el stock.
+    Inserta directamente en la tabla 'ventas' (estructura denormalizada).
+    """
+    data = request.get_json()
+    producto_id = data.get('producto_id')
+    cantidad = data.get('cantidad')
+
+    # Validaciones iniciales
+    if not producto_id or not cantidad:
+        return jsonify({"message": "Faltan producto_id o cantidad."}), 400
+    
+    try:
+        cantidad = int(cantidad)
+        if cantidad <= 0:
+            return jsonify({"message": "La cantidad debe ser un número positivo."}), 400
+    except ValueError:
+        return jsonify({"message": "La cantidad debe ser un número entero válido."}), 400
+
+    conn = None
+    cursor = None
+    
+    try:
+        conn = connect_db(DB_CONFIG) 
+        if not conn:
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+            
+        cursor = conn.cursor(dictionary=True) 
+
+        # 1. Verificar Stock, Precio y Categoría del producto
+        cursor.execute("SELECT stock, precio_unitario, categoria FROM productos WHERE id_producto = %s", (producto_id,))
+        producto = cursor.fetchone()
+        
+        if not producto:
+            return jsonify({"message": f"Producto con ID {producto_id} no encontrado."}), 404
+        
+        stock_actual = producto['stock']
+        precio_unitario = producto['precio_unitario'] # Objeto Decimal
+        categoria_producto = producto['categoria']   # Obtenemos la categoría
+        
+        if stock_actual < cantidad:
+            return jsonify({"message": "Stock insuficiente para realizar la venta."}), 400
+            
+        # 2. Calcular Totales y preparar la Venta
+        id_cliente = 1
+        id_vendedor = 1
+        
+        subtotal = precio_unitario * cantidad 
+        iva = subtotal * Decimal('0.16') # Usamos Decimal
+        total_venta = subtotal + iva
+        fecha_venta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # 3. Registrar la Venta (Inserción ÚNICA)
+        # 🚨 CAMBIO DE LÓGICA: Insertamos todo en la tabla 'ventas'
+        sql_insert_venta = """
+            INSERT INTO ventas (
+                id_producto, categoria, id_cliente, id_usuario_vendedor, 
+                cantidad, fecha_venta, monto_total
+            ) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(
+            sql_insert_venta, 
+            (
+                producto_id, categoria_producto, id_cliente, id_vendedor, 
+                cantidad, fecha_venta, total_venta
+            )
+        )
+        id_venta_creada = cursor.lastrowid
+
+        # 4. Actualizar el Stock del Producto
+        nuevo_stock = stock_actual - cantidad
+        cursor.execute("UPDATE productos SET stock = %s WHERE id_producto = %s", (nuevo_stock, producto_id))
+
+        conn.commit()
+        return jsonify({"message": "Venta registrada y stock actualizado con éxito.", "id_venta": id_venta_creada}), 201
+
+    except mysql.connector.Error as err:
+        if conn: conn.rollback()
+        print(f"Error en la transacción de venta (BD): {err}")
+        if err.errno == 1452:
+             return jsonify({"message": f"Error de BD: Clave foránea fallida. Revise si el cliente ID={id_cliente} o vendedor ID={id_vendedor} existen."}), 500
+        return jsonify({"message": f"Error de base de datos al registrar venta: {err}"}), 500
+    except Exception as e:
+        if conn: conn.rollback()
+        print(f"Error inesperado en transacción de venta: {e}")
+        return jsonify({"message": f"Error interno del servidor: {e}"}), 500
+        
+    finally:
+        if cursor: cursor.close()
+        if conn and conn.is_connected(): conn.close()
+
+
+@app.route('/api/clientes', methods=['GET'])
+def get_clientes_list():
+    """Obtiene la lista de todos los clientes para los OptionMenu."""
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: 
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+            
+        cursor = conn.cursor(dictionary=True)
+        # 🚨 Asegúrate que tu tabla se llame 'clientes' y las columnas 'id_cliente', 'nombre'
+        cursor.execute("SELECT id_cliente, nombre FROM clientes ORDER BY nombre ASC")
+        clientes = cursor.fetchall()
+        
+        return jsonify(clientes), 200
+
+    except Exception as e:
+        print(f"Error al obtener clientes: {e}")
+        return jsonify({"message": f"Error interno del servidor: {e}"}), 500
     finally:
         if conn and conn.is_connected():
             conn.close()
