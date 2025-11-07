@@ -67,6 +67,12 @@ class VentasModule(BaseAppWindow):
 
         super().__init__(master, "Ventas", user_info)
 
+        user_id_from_info = user_info.get('user_id')
+        
+        self.user_id_logueado = user_id_from_info
+
+        print(f"DEBUG: ID de Usuario logueado recibido: {self.user_id_logueado}")
+
         # Configuración de los botones de la barra lateral
         self.button_config = [
             ("Gestión de Productos", self._show_productos_view, self.ICON_PRODUCTOS),
@@ -303,15 +309,16 @@ class VentasModule(BaseAppWindow):
             )
             editar_btn.grid(row=0, column=0, padx=(0, 5), sticky="w") # Posición dentro de actions_frame
             
+            # Botón VENDER (MODIFICADO)
             vender_btn = customtkinter.CTkButton(
                 actions_frame,
                 text="Vender",
-                # 🚨 CAMBIO: Pasamos el stock_val al comando
-                command=lambda id=producto_id, name=data.get("nombre", "N/A"), stock=stock_val: self._open_vender_producto_modal(id, name, stock),
+                # 🚨 Asegúrate que la llamada envía los 4 argumentos (Python añade 'self' como 5to)
+                command=lambda id=producto_id, name=data.get("nombre", "N/A"), stock=stock_val: self._open_vender_producto_modal(id, name, stock, self.user_id_logueado),
                 width=75,
                 fg_color="#00bf63", 
                 hover_color="#00994f", 
-                state="normal" if stock_val > 0 else "disabled" # Usa el stock_val
+                state="normal" if stock_val > 0 else "disabled"
             )
             vender_btn.grid(row=0, column=1, padx=(5, 0), sticky="w")
             
@@ -338,7 +345,8 @@ class VentasModule(BaseAppWindow):
         # 🚨 NOTA: Pasamos la función de recarga de datos de la tabla principal.
         modal = AgregarProductoModal(self.master, self._show_productos_view)
 
-    def _open_vender_producto_modal(self, producto_id, nombre_producto, stock_actual):
+    def _open_vender_producto_modal(self, producto_id, nombre_producto, stock_actual, id_vendedor):
+        # 🚨 SOLUCIÓN: La cabecera ahora acepta 5 argumentos, incluyendo 'id_vendedor'.
         """Abre la ventana modal (Toplevel) para registrar una venta."""
         
         # Llama a la nueva clase modal y le pasa los datos necesarios
@@ -347,6 +355,7 @@ class VentasModule(BaseAppWindow):
             producto_id, 
             nombre_producto, 
             stock_actual, 
+            id_vendedor, # <-- ¡Ahora esta variable es el 5to argumento recibido!
             self._show_productos_view # La función de recarga
         )
         modal.grab_set()
@@ -712,29 +721,26 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
 # Archivo: ventas_module.py (REEMPLAZAR esta clase)
 
 class RegistrarVentaModal(customtkinter.CTkToplevel):
-    def __init__(self, master, producto_id, nombre_producto, stock_actual, callback_reload):
+    def __init__(self, master, producto_id, nombre_producto, stock_actual, id_vendedor, callback_reload):
         super().__init__(master)
         self.title(f"Registrar Venta: {nombre_producto}")
-        self.geometry("400x400") # Un poco más alto para el nuevo campo
+        self.geometry("400x400")
         self.transient(master)
         self.grab_set()
         
         self.producto_id = producto_id
         self.nombre_producto = nombre_producto
         self.stock_actual = stock_actual
+        self.id_vendedor = id_vendedor # <-- ¡Guardamos el ID de vendedor!
         self.callback_reload = callback_reload
-
-        # 1. Diccionario para mapear Nombre de Cliente -> ID de Cliente
-        self.clientes_map = {}
         
+        # ... (el resto del __init__ y el código de clientes sigue) ...
+        self.clientes_map = {}
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        
         main_frame = customtkinter.CTkFrame(self, fg_color="#5b94c6", corner_radius=0)
         main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         main_frame.grid_columnconfigure(0, weight=1)
-        
-        # 2. Cargar clientes ANTES de crear widgets
         self._load_clientes()
         self._create_widgets(main_frame)
 
@@ -834,7 +840,8 @@ class RegistrarVentaModal(customtkinter.CTkToplevel):
         sale_data = {
             "producto_id": self.producto_id,
             "cantidad_vendida": cantidad,
-            "id_cliente": id_cliente_seleccionado # <-- Enviamos el ID real
+            "id_cliente": id_cliente_seleccionado, # <-- Enviamos el ID real
+            "id_vendedor": self.id_vendedor
         }
 
         # ... (Llamada a conexion_servidor.register_sale sin cambios) ...

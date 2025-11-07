@@ -214,7 +214,8 @@ def register_sale(sale_data):
     payload = {
         "producto_id": sale_data["producto_id"],
         "cantidad": sale_data["cantidad_vendida"],
-        "id_cliente": sale_data["id_cliente"] # <-- ID de cliente real
+        "id_cliente": sale_data["id_cliente"],
+        "id_vendedor": sale_data["id_vendedor"]
     }
     
     try:

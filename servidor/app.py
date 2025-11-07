@@ -482,6 +482,9 @@ def registrar_venta():
     data = request.get_json()
     producto_id = data.get('producto_id')
     cantidad = data.get('cantidad')
+    
+    id_cliente_recibido = data.get('id_cliente') 
+    id_vendedor_recibido = data.get('id_vendedor')
 
     # Validaciones iniciales
     if not producto_id or not cantidad:
@@ -518,9 +521,8 @@ def registrar_venta():
         if stock_actual < cantidad:
             return jsonify({"message": "Stock insuficiente para realizar la venta."}), 400
             
-        # 2. Calcular Totales y preparar la Venta
-        id_cliente = 1
-        id_vendedor = 1
+        id_cliente = id_cliente_recibido 
+        id_vendedor = id_vendedor_recibido
         
         subtotal = precio_unitario * cantidad 
         iva = subtotal * Decimal('0.16') # Usamos Decimal
