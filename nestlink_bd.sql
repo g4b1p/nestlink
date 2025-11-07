@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 06-11-2025 a las 19:54:46
+-- Tiempo de generación: 07-11-2025 a las 21:38:00
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -245,13 +245,13 @@ INSERT INTO `productos` (`id_producto`, `nombre`, `precio_unitario`, `stock`, `c
 (4, 'Agua Mineral Pureza Vital 1L', 2, 4980, 'Bebidas', 'Listo para distribución', 'L-PV004'),
 (5, 'Cereal Fitness Original', 6, 210, 'Alimentos', 'En revisión de calidad', 'L-FO005'),
 (6, 'Leche en Polvo Nido Entera', 12, 90, 'Lácteos', 'En embalaje', 'L-NE006'),
-(7, 'Cubos Caldo Maggi Gallina', 4, 350, 'Alimentos', 'Listo para distribución', 'L-MG007'),
+(7, 'Cubos Caldo Maggi Gallina', 4, 320, 'Alimentos', 'Listo para distribución', 'L-MG007'),
 (8, 'Chocolate Crunch Barra', 3, 180, 'Chocolates', 'En revisión de calidad', 'L-CB008'),
 (9, 'Fórmula Infantil Nan Optipro 1', 26, 65, 'Lácteos', 'En embalaje', 'L-NO009'),
 (10, 'Café Dolce Gusto Lungo Cápsulas', 8, 140, 'Bebidas', 'Listo para distribución', 'L-DL010'),
 (11, 'Sopa de Pollo Maggi Instantánea', 2, 160, 'Alimentos', 'En revisión de calidad', 'L-SP011'),
 (12, 'Helado Savory Dinos (Unidad)', 2, 75, 'Chocolates', 'En embalaje', 'L-SD012'),
-(13, 'Chocolate Blanco Galak', 3, 120, 'Chocolates', 'Listo para distribución', 'L-GB013'),
+(13, 'Chocolate Blanco Galak', 3, 100, 'Chocolates', 'Listo para distribución', 'L-GB013'),
 (14, 'Té Lipton Amarillo (Caja)', 5, 280, 'Bebidas', 'En revisión de calidad', 'L-TL014'),
 (15, 'Cereal Chocapic', 6, 240, 'Alimentos', 'En embalaje', 'L-CP015'),
 (16, 'Puré de Papas Maggi Instantáneo', 3, 100, 'Alimentos', 'Listo para distribución', 'L-PP016'),
@@ -340,30 +340,10 @@ INSERT INTO `ventas` (`id_venta`, `id_producto`, `categoria`, `id_cliente`, `id_
 (39, 10, 'Bebidas', 3, 4, 4, '2025-09-10 00:00:00', 32.00),
 (40, 7, 'Alimentos', 4, 5, 15, '2025-09-10 00:00:00', 60.00),
 (42, 4, 'Bebidas', 1, 2, 10, '2025-11-06 13:23:01', 23.20),
-(43, 4, 'Bebidas', 3, 2, 10, '2025-11-06 13:29:55', 23.20);
-
---
--- Disparadores `ventas`
---
-DELIMITER $$
-CREATE TRIGGER `before_venta_insert` BEFORE INSERT ON `ventas` FOR EACH ROW BEGIN
-    DECLARE sector_vendedor VARCHAR(50);
-
-    -- 1. Buscar el sector del vendedor en la tabla empleados
-    SELECT sector INTO sector_vendedor
-    FROM empleados
-    WHERE id_empleado = NEW.id_usuario_vendedor;
-
-    -- 2. Verificar si el sector es 'ventas'
-    IF sector_vendedor <> 'ventas' THEN
-        -- Si no es 'ventas', abortar la inserción y emitir un error.
-        -- Signal SQLSTATE '45000' es el método estándar para generar un error personalizado.
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Error: Solo los empleados del sector "ventas" pueden registrar ventas.';
-    END IF;
-END
-$$
-DELIMITER ;
+(43, 4, 'Bebidas', 3, 2, 10, '2025-11-06 13:29:55', 23.20),
+(44, 13, 'Chocolates', 1, 1, 20, '2025-11-07 17:14:13', 69.60),
+(45, 7, 'Alimentos', 1, 1, 10, '2025-11-07 17:28:16', 46.40),
+(46, 7, 'Alimentos', 2, 6, 20, '2025-11-07 17:35:07', 92.80);
 
 --
 -- Índices para tablas volcadas
@@ -492,7 +472,7 @@ ALTER TABLE `usuarios`
 -- AUTO_INCREMENT de la tabla `ventas`
 --
 ALTER TABLE `ventas`
-  MODIFY `id_venta` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
+  MODIFY `id_venta` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- Restricciones para tablas volcadas
