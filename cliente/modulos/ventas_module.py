@@ -29,11 +29,11 @@ ICON_PRODUCTOS = customtkinter.CTkImage(
     size=(30, 30)
 )
 
-ICON_RENDIMIENTO = customtkinter.CTkImage(
-    light_image=Image.open(os.path.join(_base_path, 'panel-rendimiento.png')),
-    dark_image=Image.open(os.path.join(_base_path, 'panel-rendimiento.png')),
-    size=(30, 30)
-)
+#ICON_RENDIMIENTO = customtkinter.CTkImage(
+#    light_image=Image.open(os.path.join(_base_path, 'panel-rendimiento.png')),
+#    dark_image=Image.open(os.path.join(_base_path, 'panel-rendimiento.png')),
+#    size=(30, 30)
+#)
 
 ICON_CAMPAÑAS = customtkinter.CTkImage(
     light_image=Image.open(os.path.join(_base_path, 'gestion-campañas.png')),
@@ -59,7 +59,7 @@ class VentasModule(BaseAppWindow):
 
     # Asignación de íconos locales para el sidebar
     ICON_PRODUCTOS = ICON_PRODUCTOS 
-    ICON_RENDIMIENTO = ICON_RENDIMIENTO
+    #ICON_RENDIMIENTO = ICON_RENDIMIENTO
     ICON_CAMPAÑAS = ICON_CAMPAÑAS
     ICON_HISTORIAL = ICON_HISTORIAL
 
@@ -76,9 +76,9 @@ class VentasModule(BaseAppWindow):
         # Configuración de los botones de la barra lateral
         self.button_config = [
             ("Gestión de Productos", self._show_productos_view, self.ICON_PRODUCTOS),
-            ("Panel de Rendimiento", self._show_rendimiento_view, self.ICON_RENDIMIENTO),
+            #("Panel de Rendimiento", self._show_rendimiento_view, self.ICON_RENDIMIENTO),
             ("Gestión de Campañas", self._show_campañas_view, self.ICON_CAMPAÑAS),
-            ("Historial de Ventas", self._show_historial_view, self.ICON_HISTORIAL),
+            ("Historial de Ventas", self._show_historial_ventas_view, self.ICON_HISTORIAL),
         ]
 
         # Establece la primera vista como activa por defecto (Gestión de Productos)
@@ -371,9 +371,9 @@ class VentasModule(BaseAppWindow):
     # VISTA 2: PANEL DE RENDIMIENTO (Placeholder)
     # -----------------------------------------------------------------
 
-    def _show_rendimiento_view(self):
-        self._clear_main_content()
-        customtkinter.CTkLabel(self.main_content, text="Panel de Rendimiento (WIP)", font=customtkinter.CTkFont(size=20, weight="bold")).pack(padx=50, pady=50)
+    #def _show_rendimiento_view(self):
+    #    self._clear_main_content()
+    #    customtkinter.CTkLabel(self.main_content, text="Panel de Rendimiento (WIP)", font=customtkinter.CTkFont(size=20, weight="bold")).pack(padx=50, pady=50)
 
 
     # -----------------------------------------------------------------
@@ -579,12 +579,187 @@ class VentasModule(BaseAppWindow):
     # VISTA 4: HISTORIAL DE VENTAS (Placeholder)
     # -----------------------------------------------------------------
 
-    def _show_historial_view(self):
-        self._clear_main_content()
-        customtkinter.CTkLabel(self.main_content, text="Historial de Ventas (WIP)", font=customtkinter.CTkFont(size=20, weight="bold")).pack(padx=50, pady=50)
+    def _show_historial_ventas_view(self):
+        """Muestra la vista de historial de ventas con la estética de Gestión de Campañas/Productos."""
+        self._clear_main_content() 
 
-# Archivo: ventas_module.py (Añadir al final del archivo)
+        # Configuración de expansión (Fila 1 para la tabla, se expande)
+        self.main_content.grid_rowconfigure(0, weight=0)
+        self.main_content.grid_rowconfigure(1, weight=1)
+        self.main_content.grid_columnconfigure(0, weight=1)
 
+        # --- 1. Header de la Vista (Título y Filtro) ---
+        view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
+        view_header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
+        view_header_frame.grid_columnconfigure(0, weight=1) 
+        view_header_frame.grid_columnconfigure(1, weight=0) 
+
+        customtkinter.CTkLabel(
+            view_header_frame,
+            text="Historial de Ventas",
+            font=customtkinter.CTkFont(size=20, weight="bold"), 
+            text_color="#5b94c6" 
+        ).grid(row=0, column=0, sticky="w")
+        
+        # Frame del Filtro (derecha)
+        filtro_frame = customtkinter.CTkFrame(view_header_frame, fg_color="transparent")
+        filtro_frame.grid(row=0, column=1, sticky="e")
+        
+        customtkinter.CTkLabel(filtro_frame, text="Filtrar por Categoría:").grid(row=0, column=0, padx=(0, 5), sticky="w")
+
+        # OptionMenu para Categorías
+        self.ventas_categoria_filtro = customtkinter.CTkOptionMenu(
+            filtro_frame,
+            values=["Cargando..."],
+            command=self._filter_ventas_table
+        )
+        self.ventas_categoria_filtro.grid(row=0, column=1, sticky="e")
+
+        # -----------------------------------------------------------------------
+        # 2. Área de la Tabla (Contenedor con Borde, Cabecera FIJA y ScrollableFrame)
+        # -----------------------------------------------------------------------
+
+        # PASO 1: Contenedor que maneja el Borde
+        self.table_border_container_ventas = customtkinter.CTkFrame(
+            self.main_content,
+            corner_radius=5,
+            fg_color=MAIN_BG_COLOR,
+            border_color="#5b94c6",
+            border_width=2
+        )
+        self.table_border_container_ventas.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+
+        self.table_border_container_ventas.grid_columnconfigure(0, weight=1)
+        self.table_border_container_ventas.grid_rowconfigure(0, weight=0) # Cabecera fija
+        self.table_border_container_ventas.grid_rowconfigure(1, weight=1) # Cuerpo scrollable
+
+        # 🚨 Definición de las columnas de la tabla de ventas
+        self.ventas_columnas = ["Producto", "Categoría", "Cantidad", "Fecha Venta", "Cliente", "Vendedor", "Monto Total"]
+        NUM_COLUMNAS_DATOS = len(self.ventas_columnas)
+        # 🚨 Pesos de expansión (Ajustados para los 7 campos de ventas)
+        self.ventas_column_weights = [2, 1, 1, 2, 2, 2, 1] 
+
+        # 🚨 PASO 2: Frame para la CABECERA FIJA
+        self.header_fixed_frame_ventas = customtkinter.CTkFrame(
+            self.table_border_container_ventas,
+            fg_color="#5b94c6", 
+            corner_radius=0
+        )
+        self.header_fixed_frame_ventas.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+
+        # CLAVE A: COMPENSACIÓN SCROLLBAR
+        self.header_fixed_frame_ventas.grid_columnconfigure(NUM_COLUMNAS_DATOS, weight=0, minsize=17)
+
+        # BUCLE DE CONFIGURACIÓN Y ETIQUETAS DEL ENCABEZADO (CREACIÓN INLINE)
+        for i, col_name in enumerate(self.ventas_columnas):
+            self.header_fixed_frame_ventas.grid_columnconfigure(i, weight=self.ventas_column_weights[i])
+            customtkinter.CTkLabel(
+                self.header_fixed_frame_ventas,
+                text=col_name,
+                font=customtkinter.CTkFont(weight="bold", size=13),
+                text_color="white"
+            ).grid(row=0, column=i, padx=10, pady=8, sticky="w")
+
+
+        # 🚨 PASO 3: CTkScrollableFrame (la tabla de datos) 
+        self.ventas_tabla_frame = customtkinter.CTkScrollableFrame(
+            self.table_border_container_ventas,
+            fg_color="transparent" # CLAVE: Fondo transparente
+        )
+        self.ventas_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
+
+        # CLAVE C: Configuramos las columnas del cuerpo para que coincidan con la cabecera.
+        for i in range(NUM_COLUMNAS_DATOS):
+            self.ventas_tabla_frame.grid_columnconfigure(i, weight=self.ventas_column_weights[i])
+
+        # Finalmente, cargamos los filtros y los datos
+        self._populate_ventas_filters()
+        self._load_ventas_data()
+
+    # 🚨 IMPORTANTE: Asegúrate de borrar la función _create_ventas_table_header si aún existe.
+    # def _create_ventas_table_header(self): 
+    #     pass # ELIMINAR ESTA FUNCIÓN
+
+
+    def _populate_ventas_filters(self):
+        """Carga las categorías disponibles para el filtro."""
+        try:
+            categorias = conexion_servidor.get_categorias_ventas()
+            # Añadir la opción 'Todas' al principio
+            opciones = ["Todas"] + sorted(categorias)
+            self.ventas_categoria_filtro.configure(values=opciones)
+            self.ventas_categoria_filtro.set("Todas")
+        except Exception as e:
+            print(f"Error al poblar filtros de ventas: {e}")
+            self.ventas_categoria_filtro.configure(values=["Error"])
+            self.ventas_categoria_filtro.set("Error")
+
+    def _filter_ventas_table(self, selected_category):
+        """Se llama cuando se selecciona una categoría en el OptionMenu."""
+        self._load_ventas_data(selected_category)
+
+
+    def _load_ventas_data(self, categoria_filtro="Todas"):
+        """Carga datos de ventas del servidor y construye las filas con estética transparente y texto visible."""
+        
+        for widget in self.ventas_tabla_frame.winfo_children():
+            widget.destroy() 
+
+        try:
+            filtro = categoria_filtro if categoria_filtro != 'Todas' else ""
+            historial_ventas = conexion_servidor.get_historial_ventas(filtro)
+        except Exception as e:
+            messagebox.showerror("Error de Carga", f"No se pudo cargar el historial de ventas: {e}")
+            historial_ventas = []
+
+        if not historial_ventas:
+            customtkinter.CTkLabel(
+                self.ventas_tabla_frame, 
+                text="No se encontraron ventas con este filtro.", 
+                text_color="gray"
+            ).grid(row=0, column=0, columnspan=len(self.ventas_columnas), padx=10, pady=20)
+            return
+
+        PAD_Y = 5
+        last_widget_row = 0
+        
+        for row, data in enumerate(historial_ventas):
+            row_index = row 
+            
+            monto_str = f"${float(data.get('monto_total', 0.00)):,.2f}"
+
+            row_data = [
+                data.get("nombre_producto", "N/A"),
+                data.get("categoria", "N/A"),
+                data.get("cantidad", 0),
+                data.get("fecha_venta", "N/A"),
+                data.get("nombre_cliente", "N/A"),
+                data.get("nombre_vendedor", "N/A"),
+                monto_str
+            ]
+            
+            for col, value in enumerate(row_data):
+                customtkinter.CTkLabel(
+                    self.ventas_tabla_frame,
+                    text=str(value), 
+                    anchor="w",
+                    # 🚨 CLAVE: Texto negro para visibilidad sobre fondo claro
+                    text_color="black",      
+                    fg_color="transparent"  
+                ).grid(row=row_index, column=col, padx=10, pady=PAD_Y, sticky="w")
+                
+            last_widget_row = row_index
+
+        # Fila fantasma con peso 1 para forzar la expansión vertical
+        fila_fantasma_index = last_widget_row + 1 if historial_ventas else 1
+        self.ventas_tabla_frame.grid_rowconfigure(fila_fantasma_index, weight=1)
+        customtkinter.CTkLabel(self.ventas_tabla_frame, text="", height=0, fg_color="transparent").grid(
+            row=fila_fantasma_index,
+            column=0,
+            sticky="nsew"
+        )
+    
+    
 class EditarProductoModal(customtkinter.CTkToplevel):
     def __init__(self, master, campaña_id, campaña_data, callback_reload, search_query_current=""):
         super().__init__(master)
@@ -907,9 +1082,6 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
         except Exception as e:
             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
 
-
-# Archivo: ventas_module.py (REEMPLAZAR esta clase)
-
 class RegistrarVentaModal(customtkinter.CTkToplevel):
     def __init__(self, master, producto_id, nombre_producto, stock_actual, id_vendedor, callback_reload):
         super().__init__(master)
@@ -1045,9 +1217,6 @@ class RegistrarVentaModal(customtkinter.CTkToplevel):
                 self.message_label.configure(text=f"Error al registrar venta: {message}", text_color="red")
         except Exception as e:
             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
-
-
-# Archivo: ventas_module.py (AÑADIR esta nueva clase)
 
 class EditarCampañaModal(customtkinter.CTkToplevel):
     def __init__(self, master, campaña_id, campaña_data, callback_reload, search_query_current=""):
@@ -1192,10 +1361,3 @@ class EditarCampañaModal(customtkinter.CTkToplevel):
 
         except Exception as e:
             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
-
-
-# --- Fin de la clase AgregarProductoModal ---
-
-# --- Fin de la clase EditarProductoModal ---
-
-# --- Fin de VentasModule ---

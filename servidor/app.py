@@ -693,6 +693,84 @@ def update_campana(campana_id):
             conn.close()
 
 
+@app.route('/api/ventas', methods=['GET'])
+def get_ventas_historial():
+    """Obtiene el historial completo de ventas, con nombres de tablas relacionadas y filtro por categoría."""
+    
+    # Obtener el parámetro de filtro de categoría (si existe)
+    categoria_filtro = request.args.get('categoria')
+    
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: 
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+            
+        cursor = conn.cursor(dictionary=True)
+        
+        # 🚨 CONSULTA SQL CON JOINS PARA OBTENER LOS NOMBRES 🚨
+        sql = """
+            SELECT 
+                v.id_venta, 
+                p.nombre AS nombre_producto, 
+                v.categoria, 
+                v.cantidad, 
+                DATE_FORMAT(v.fecha_venta, '%Y-%m-%d %H:%i') AS fecha_venta, 
+                c.nombre AS nombre_cliente, 
+                e.nombre AS nombre_vendedor, 
+                v.monto_total
+            FROM ventas v
+            JOIN productos p ON v.id_producto = p.id_producto
+            JOIN clientes c ON v.id_cliente = c.id_cliente
+            JOIN empleados e ON v.id_usuario_vendedor = e.id_empleado
+        """
+        params = ()
+        
+        if categoria_filtro and categoria_filtro != 'Todas':
+            sql += " WHERE v.categoria = %s"
+            params = (categoria_filtro,)
+            
+        sql += " ORDER BY v.fecha_venta DESC" # Ordenar por más recientes
+        
+        cursor.execute(sql, params)
+        historial_ventas = cursor.fetchall()
+        
+        return jsonify(historial_ventas), 200
+
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al obtener historial de ventas: {err}")
+        return jsonify({"message": f"Error de BD: {err}"}), 500
+    except Exception as e:
+        print(f"Error inesperado al obtener historial de ventas: {e}")
+        return jsonify({"message": f"Error interno del servidor: {e}"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+# También necesitamos una ruta para obtener las categorías para el filtro
+@app.route('/api/categorias_ventas', methods=['GET'])
+def get_categorias_ventas():
+    """Obtiene una lista única de categorías usadas en la tabla ventas."""
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: 
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+        
+        cursor = conn.cursor()
+        # Selecciona las categorías únicas y no nulas
+        cursor.execute("SELECT DISTINCT categoria FROM ventas WHERE categoria IS NOT NULL")
+        categorias = [row[0] for row in cursor.fetchall()]
+        return jsonify(categorias), 200
+        
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al obtener categorías: {err}")
+        return jsonify({"message": f"Error de BD: {err}"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+
 if __name__ == '__main__':
     # Creamos la carpeta UPLOAD_FOLDER por si acaso, antes de iniciar
     if not os.path.exists(UPLOAD_FOLDER):

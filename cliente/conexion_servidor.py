@@ -283,3 +283,30 @@ def update_campaña(campana_id, data):
         # Captura otros errores de red/conexión
         print(f"Error de conexión al actualizar campaña: {e}")
         return False, f"Error de conexión: {e}"
+
+
+def get_historial_ventas(categoria_filtro=""):
+    """Obtiene el historial de ventas del servidor, filtrando por categoría."""
+    url = f"{BASE_URL}/api/ventas"
+    params = {}
+    if categoria_filtro:
+        params = {'categoria': categoria_filtro}
+        
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error al obtener historial de ventas: {e}")
+        return []
+
+def get_categorias_ventas():
+    """Obtiene las categorías únicas para el filtro del historial de ventas."""
+    url = f"{BASE_URL}/api/categorias_ventas"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error al obtener categorías de ventas: {e}")
+        return []
