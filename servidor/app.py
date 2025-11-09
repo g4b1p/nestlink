@@ -594,57 +594,111 @@ def get_clientes_list():
             conn.close()
 
 
-@app.route('/api/campañas', methods=['GET'])
-def get_campañas_list():
-    """Obtiene la lista de campañas, con filtro opcional por nombre."""
-    
-    # Obtenemos el parámetro de búsqueda (si existe)
-    nombre_filtro = request.args.get('nombre')
-    
-    conn = None
-    try:
-        conn = connect_db(DB_CONFIG)
-        if not conn: 
-            return jsonify({"message": "Error de conexión con la BD"}), 500
+@app.route('/api/campañas', methods=['GET', 'POST'])
+def campañas_handler():
+    """Maneja la obtención (GET) y el registro (POST) de campañas."""
+
+    # =================================================================
+    # LÓGICA GET (Obtención de lista y filtros)
+    # =================================================================
+    if request.method == 'GET':
+        
+        nombre_filtro = request.args.get('nombre')
+        conn = None
+        try:
+            conn = connect_db(DB_CONFIG)
+            if not conn: 
+                return jsonify({"message": "Error de conexión con la BD"}), 500
+                
+            cursor = conn.cursor(dictionary=True)
             
-        cursor = conn.cursor(dictionary=True)
-        
-        # 🚨 Columnas de tu tabla 'campanas' (basado en tu screenshot)
-        sql = """
-            SELECT 
-                id_campana, 
-                nombre_campana, 
-                objetivo, 
-                DATE_FORMAT(fecha_inicio, '%Y-%m-%d') as fecha_inicio, 
-                DATE_FORMAT(fecha_fin, '%Y-%m-%d') as fecha_fin, 
-                resultados 
-            FROM campanas
-        """
-        params = ()
-        
-        if nombre_filtro:
-            sql += " WHERE nombre_campana LIKE %s"
-            params = (f'%{nombre_filtro}%',)
+            sql = """
+                SELECT 
+                    id_campana, 
+                    nombre_campana, 
+                    objetivo, 
+                    DATE_FORMAT(fecha_inicio, '%Y-%m-%d') as fecha_inicio, 
+                    DATE_FORMAT(fecha_fin, '%Y-%m-%d') as fecha_fin, 
+                    resultados 
+                FROM campanas
+            """
+            params = ()
             
-        sql += " ORDER BY fecha_inicio DESC" # Ordenar por más recientes
+            if nombre_filtro:
+                sql += " WHERE nombre_campana LIKE %s"
+                params = (f'%{nombre_filtro}%',)
+                
+            sql += " ORDER BY fecha_inicio DESC" 
+            
+            cursor.execute(sql, params)
+            campañas = cursor.fetchall()
+            
+            return jsonify(campañas), 200
+
+        except mysql.connector.Error as err:
+            print(f"Error de base de datos al obtener campañas: {err}")
+            return jsonify({"message": f"Error de BD: {err}"}), 500
+        except Exception as e:
+            print(f"Error inesperado al obtener campañas: {e}")
+            return jsonify({"message": f"Error interno del servidor: {e}"}), 500
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
+
+
+    # =================================================================
+    # LÓGICA POST (Registro de nueva campaña)
+    # =================================================================
+    elif request.method == 'POST':
+        data = request.get_json()
         
-        cursor.execute(sql, params)
-        campañas = cursor.fetchall()
-        
-        return jsonify(campañas), 200
+        # Validar campos obligatorios que vienen del módulo de Marketing
+        required_fields = ['nombre_campana', 'objetivo', 'fecha_inicio', 'fecha_fin']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"message": f"El campo '{field}' es obligatorio."}), 400
 
-    except mysql.connector.Error as err:
-        print(f"Error de base de datos al obtener campañas: {err}")
-        return jsonify({"message": f"Error de BD: {err}"}), 500
-    except Exception as e:
-        print(f"Error inesperado al obtener campañas: {e}")
-        return jsonify({"message": f"Error interno del servidor: {e}"}), 500
-    finally:
-        if conn and conn.is_connected():
-            conn.close()
+        # Obtener y limpiar datos (usamos get, si no existe el campo es None, ideal para opcionales)
+        nombre = data.get('nombre_campana')
+        objetivo = data.get('objetivo')
+        fecha_inicio = data.get('fecha_inicio')
+        fecha_fin = data.get('fecha_fin')
+        resultados = data.get('resultados', '') # Opcional, puede ser vacío o None
 
+        conn = None
+        try:
+            conn = connect_db(DB_CONFIG)
+            if not conn: 
+                return jsonify({"message": "Error de conexión con la BD"}), 500
+                
+            cursor = conn.cursor()
 
-# Archivo: app.py (AÑADIR esta nueva ruta)
+            sql = """
+                INSERT INTO campanas 
+                    (nombre_campana, objetivo, fecha_inicio, fecha_fin, resultados) 
+                VALUES 
+                    (%s, %s, %s, %s, %s)
+            """
+            params = (nombre, objetivo, fecha_inicio, fecha_fin, resultados)
+            
+            cursor.execute(sql, params)
+            conn.commit()
+
+            # Devolver éxito y el ID de la nueva campaña (opcional, pero útil)
+            new_id = cursor.lastrowid
+            return jsonify({"message": f"Campaña '{nombre}' registrada con éxito. ID: {new_id}"}), 201 # 201 Created
+
+        except mysql.connector.Error as err:
+            # Puedes añadir manejo de errores de integridad (ej: nombre duplicado)
+            print(f"Error de base de datos al registrar campaña: {err}")
+            return jsonify({"message": f"Error de BD al insertar: {err}"}), 500
+        except Exception as e:
+            print(f"Error inesperado al registrar campaña: {e}")
+            return jsonify({"message": f"Error interno del servidor: {e}"}), 500
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
+
 
 @app.route('/api/campañas/<int:campana_id>', methods=['PUT'])
 def update_campana(campana_id):

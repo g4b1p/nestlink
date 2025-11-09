@@ -313,3 +313,30 @@ def get_categorias_ventas():
     except requests.exceptions.RequestException as e:
         print(f"Error al obtener categorías de ventas: {e}")
         return []
+
+
+def create_campaña(data):
+    """Crea una nueva campaña de marketing enviando una solicitud POST al servidor."""
+    url = f"{BASE_URL}/api/campañas" 
+    
+    try:
+        response = requests.post(url, json=data)
+        response.raise_for_status() # Lanza excepción para códigos 4xx/5xx
+        
+        # Si tiene éxito (código 201), devuelve éxito y el mensaje del servidor
+        return True, response.json().get('message', "Campaña registrada correctamente.")
+
+    except requests.exceptions.HTTPError as http_err:
+        # Captura errores específicos (4xx, 5xx) y extrae el mensaje del JSON
+        try:
+            error_message = response.json().get('message', str(http_err))
+        except requests.exceptions.JSONDecodeError:
+            error_message = f"Error {response.status_code}: {response.text}"
+            
+        print(f"Error HTTP al registrar campaña: {error_message}")
+        return False, error_message
+        
+    except requests.exceptions.RequestException as e:
+        # Captura otros errores de red/conexión
+        print(f"Error de conexión al registrar campaña: {e}")
+        return False, f"Error de conexión con el servidor: {e}"

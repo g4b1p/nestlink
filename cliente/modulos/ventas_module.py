@@ -546,8 +546,8 @@ class VentasModule(BaseAppWindow):
                 text="Editar",
                 command=lambda id=campaña_id, data=data: self._open_editar_campaña_modal(id, data),
                 width=75,
-                fg_color="#5b94c6", 
-                hover_color="#3c6f9e", 
+                fg_color="#555555",
+            hover_color="#444444",
             )
             editar_btn.grid(row=0, column=0, sticky="w")
 
