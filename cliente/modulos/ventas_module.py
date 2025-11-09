@@ -135,8 +135,8 @@ class VentasModule(BaseAppWindow):
             view_header_frame,
             text="+ Agregar Producto",
             command=self._open_agregar_producto_modal,
-            fg_color="#00bf63", # Color verde, coherente con RRHH
-            hover_color="#00994f",
+            fg_color="#555555",
+            hover_color="#444444",
             height=35,
             anchor="center"
         ).grid(row=0, column=2, sticky="e")
@@ -304,8 +304,8 @@ class VentasModule(BaseAppWindow):
                 text="Editar",
                 command=lambda id=producto_id, data=data: self._open_editar_producto_modal(id, data),
                 width=75,
-                fg_color="#5b94c6", 
-                hover_color="#3c6f9e", 
+                fg_color="#555555",
+                hover_color="#444444"
             )
             editar_btn.grid(row=0, column=0, padx=(0, 5), sticky="w") # Posición dentro de actions_frame
             
@@ -343,7 +343,8 @@ class VentasModule(BaseAppWindow):
     def _open_agregar_producto_modal(self):
         """Abre la ventana modal (Toplevel) para agregar un nuevo producto."""
         # 🚨 NOTA: Pasamos la función de recarga de datos de la tabla principal.
-        modal = AgregarProductoModal(self.master, self._show_productos_view)
+        #modal = AgregarProductoModal(self.master, self._show_productos_view)
+        messagebox.showinfo("Acceso Denegado", "No tienes permiso para agregar productos. Esta función está reservada para el sector de Producción.")
 
     def _open_vender_producto_modal(self, producto_id, nombre_producto, stock_actual, id_vendedor):
         # 🚨 SOLUCIÓN: La cabecera ahora acepta 5 argumentos, incluyendo 'id_vendedor'.
@@ -364,8 +365,9 @@ class VentasModule(BaseAppWindow):
         """Abre la ventana modal (Toplevel) para editar un producto existente."""
         
         # 🚨 NOTA: Pasamos la función de recarga de datos de la tabla principal.
-        modal = EditarProductoModal(self.master, producto_id, producto_data, self._show_productos_view) 
+        #modal = EditarProductoModal(self.master, producto_id, producto_data, self._show_productos_view) 
         # El _show_productos_view recarga la tabla y vuelve a dibujar toda la vista.
+        messagebox.showinfo("Acceso Denegado", "No tienes permiso para editar productos. Esta función está reservada para el sector de Producción.")
 
     # -----------------------------------------------------------------
     # VISTA 2: PANEL DE RENDIMIENTO (Placeholder)
@@ -760,327 +762,330 @@ class VentasModule(BaseAppWindow):
         )
     
     
-class EditarProductoModal(customtkinter.CTkToplevel):
-    def __init__(self, master, campaña_id, campaña_data, callback_reload, search_query_current=""):
-        super().__init__(master)
-        self.title(f"Editar Producto: {producto_data['nombre']}")
-        self.geometry("500x550")
-        self.transient(master) # Mantener el modal encima de la ventana principal
-        self.grab_set()        # Bloquear interacción con otras ventanas
+# class EditarProductoModal(customtkinter.CTkToplevel):
+#     def __init__(self, master, campaña_id, campaña_data, callback_reload, search_query_current=""):
+#         super().__init__(master)
+#         self.title(f"Editar Producto: {producto_data['nombre']}")
+#         self.geometry("500x550")
+#         self.transient(master) # Mantener el modal encima de la ventana principal
+#         self.grab_set()        # Bloquear interacción con otras ventanas
         
-        self.producto_id = producto_id
-        self.producto_data = producto_data
-        self.callback_reload = callback_reload # Función para recargar la tabla principal
+#         self.producto_id = producto_id
+#         self.producto_data = producto_data
+#         self.callback_reload = callback_reload # Función para recargar la tabla principal
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+#         self.grid_columnconfigure(0, weight=1)
+#         self.grid_rowconfigure(0, weight=1)
         
-        main_frame = customtkinter.CTkFrame(self, fg_color=SIDEBAR_COLOR, corner_radius=0)
-        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-        main_frame.grid_columnconfigure(0, weight=1)
+#         main_frame = customtkinter.CTkFrame(self, fg_color=SIDEBAR_COLOR, corner_radius=0)
+#         main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+#         main_frame.grid_columnconfigure(0, weight=1)
         
-        self._create_widgets(main_frame)
+#         self._create_widgets(main_frame)
 
-    def _create_widgets(self, main_frame):
-        # Título
-        customtkinter.CTkLabel(main_frame, text="MODIFICAR DATOS DEL PRODUCTO", 
-                               font=customtkinter.CTkFont(size=18, weight="bold"),
-                               text_color="white").grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 10), sticky="n")
+#     def _create_widgets(self, main_frame):
+#         # Título
+#         customtkinter.CTkLabel(main_frame, text="MODIFICAR DATOS DEL PRODUCTO", 
+#                                font=customtkinter.CTkFont(size=18, weight="bold"),
+#                                text_color="white").grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 10), sticky="n")
 
-        # Frame contenedor para inputs
-        form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
-        form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-        form_frame.grid_columnconfigure(0, weight=1)
-        form_frame.grid_columnconfigure(1, weight=1)
+#         # Frame contenedor para inputs
+#         form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+#         form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+#         form_frame.grid_columnconfigure(0, weight=1)
+#         form_frame.grid_columnconfigure(1, weight=1)
 
-        row_num = 0
+#         row_num = 0
 
-        # Campo 1: Nombre (Solo lectura, ya que el ID no se debe cambiar)
-        customtkinter.CTkLabel(form_frame, text="Nombre:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_nombre = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_nombre.insert(0, self.producto_data['nombre'])
-        self.entry_nombre.configure(state="disabled", text_color="gray") # Deshabilitar edición
-        self.entry_nombre.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 1: Nombre (Solo lectura, ya que el ID no se debe cambiar)
+#         customtkinter.CTkLabel(form_frame, text="Nombre:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_nombre = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_nombre.insert(0, self.producto_data['nombre'])
+#         self.entry_nombre.configure(state="disabled", text_color="gray") # Deshabilitar edición
+#         self.entry_nombre.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 2: Categoría (Solo lectura)
-        customtkinter.CTkLabel(form_frame, text="Categoría:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_categoria = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_categoria.insert(0, self.producto_data['categoria'])
-        self.entry_categoria.configure(state="disabled", text_color="gray") # Deshabilitar edición
-        self.entry_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 2: Categoría (Solo lectura)
+#         customtkinter.CTkLabel(form_frame, text="Categoría:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_categoria = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_categoria.insert(0, self.producto_data['categoria'])
+#         self.entry_categoria.configure(state="disabled", text_color="gray") # Deshabilitar edición
+#         self.entry_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
 
-        # Campo 3: Precio
-        customtkinter.CTkLabel(form_frame, text="Precio Unitario:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_precio = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_precio.insert(0, str(float(self.producto_data.get('precio', 0.00)))) # Usamos float para evitar el $
-        self.entry_precio.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 3: Precio
+#         customtkinter.CTkLabel(form_frame, text="Precio Unitario:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_precio = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_precio.insert(0, str(float(self.producto_data.get('precio', 0.00)))) # Usamos float para evitar el $
+#         self.entry_precio.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 4: Stock
-        customtkinter.CTkLabel(form_frame, text="Stock:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_stock = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_stock.insert(0, str(self.producto_data['stock']))
-        self.entry_stock.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 4: Stock
+#         customtkinter.CTkLabel(form_frame, text="Stock:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_stock = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_stock.insert(0, str(self.producto_data['stock']))
+#         self.entry_stock.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 5: Estado (OptionMenu)
-        customtkinter.CTkLabel(form_frame, text="Estado:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        estados_posibles = ["Listo para distribución", "En revisión de calidad", "En embalaje"]
-        self.option_estado = customtkinter.CTkOptionMenu(form_frame, values=estados_posibles, width=200)
-        self.option_estado.set(self.producto_data['estado'])
-        self.option_estado.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 5: Estado (OptionMenu)
+#         customtkinter.CTkLabel(form_frame, text="Estado:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         estados_posibles = ["Listo para distribución", "En revisión de calidad", "En embalaje"]
+#         self.option_estado = customtkinter.CTkOptionMenu(form_frame, values=estados_posibles, width=200)
+#         self.option_estado.set(self.producto_data['estado'])
+#         self.option_estado.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 6: Lote
-        customtkinter.CTkLabel(form_frame, text="Lote:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_lote = customtkinter.CTkEntry(form_frame, width=200)
-        # Asumimos que 'lote' es un campo que puede venir en los datos
-        self.entry_lote.insert(0, self.producto_data.get('lote', ''))
-        self.entry_lote.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 6: Lote
+#         customtkinter.CTkLabel(form_frame, text="Lote:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_lote = customtkinter.CTkEntry(form_frame, width=200)
+#         # Asumimos que 'lote' es un campo que puede venir en los datos
+#         self.entry_lote.insert(0, self.producto_data.get('lote', ''))
+#         self.entry_lote.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
 
-        # Mensaje de error/éxito
-        self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
-        self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
+#         # Mensaje de error/éxito
+#         self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
+#         self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
 
-        # Frame de botones
-        btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
-        btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
+#         # Frame de botones
+#         btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+#         btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
+#         btn_frame.grid_columnconfigure((0, 1), weight=1)
 
-        # Botón Guardar
-        customtkinter.CTkButton(
-            btn_frame, 
-            text="Guardar Cambios", 
-            command=self._save_changes,
-            fg_color="#00bf63", # Verde
-            hover_color="#00994f"
-        ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
+#         # Botón Guardar
+#         customtkinter.CTkButton(
+#             btn_frame, 
+#             text="Guardar Cambios", 
+#             command=self._save_changes,
+#             fg_color="#00bf63", # Verde
+#             hover_color="#00994f"
+#         ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
 
-        # Botón Cancelar
-        customtkinter.CTkButton(
-            btn_frame, 
-            text="Cancelar", 
-            command=self.destroy,
-            fg_color="#B22222", 
-            hover_color="#8B0000"
-        ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
+#         # Botón Cancelar
+#         customtkinter.CTkButton(
+#             btn_frame, 
+#             text="Cancelar", 
+#             command=self.destroy,
+#             fg_color="#B22222", 
+#             hover_color="#8B0000"
+#         ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
 
-    def _save_changes(self):
-        """Valida los datos y envía la solicitud PUT al servidor."""
-        precio_raw = self.entry_precio.get().replace(',', '.')
-        stock_raw = self.entry_stock.get()
-        lote = self.entry_lote.get()
-        estado = self.option_estado.get()
+#     def _save_changes(self):
+#         """Valida los datos y envía la solicitud PUT al servidor."""
+#         precio_raw = self.entry_precio.get().replace(',', '.')
+#         stock_raw = self.entry_stock.get()
+#         lote = self.entry_lote.get()
+#         estado = self.option_estado.get()
 
-        # Validación
-        if not precio_raw or not stock_raw or not lote:
-            self.message_label.configure(text="Todos los campos editables son obligatorios.")
-            return
+#         # Validación
+#         if not precio_raw or not stock_raw or not lote:
+#             self.message_label.configure(text="Todos los campos editables son obligatorios.")
+#             return
 
-        try:
-            precio = float(precio_raw)
-            if precio <= 0: raise ValueError
-        except ValueError:
-            self.message_label.configure(text="El precio debe ser un número positivo.")
-            return
+#         try:
+#             precio = float(precio_raw)
+#             if precio <= 0: raise ValueError
+#         except ValueError:
+#             self.message_label.configure(text="El precio debe ser un número positivo.")
+#             return
 
-        try:
-            stock = int(stock_raw)
-            if stock < 0: raise ValueError
-        except ValueError:
-            self.message_label.configure(text="El stock debe ser un número entero no negativo.")
-            return
+#         try:
+#             stock = int(stock_raw)
+#             if stock < 0: raise ValueError
+#         except ValueError:
+#             self.message_label.configure(text="El stock debe ser un número entero no negativo.")
+#             return
 
-        # Preparar los datos para enviar al servidor
-        update_data = {
-            "precio_unitario": precio, # Usamos el nombre de la columna de la BD (app.py lo espera)
-            "stock": stock,
-            "estado": estado,
-            "lote": lote
-        }
+#         # Preparar los datos para enviar al servidor
+#         update_data = {
+#             "precio_unitario": precio, # Usamos el nombre de la columna de la BD (app.py lo espera)
+#             "stock": stock,
+#             "estado": estado,
+#             "lote": lote
+#         }
 
-        # Lógica de conexión (PUT)
-        try:
-            success, message = conexion_servidor.update_producto(self.producto_id, update_data)
+#         # Lógica de conexión (PUT)
+#         try:
+#             success, message = conexion_servidor.update_producto(self.producto_id, update_data)
             
-            if success:
-                messagebox.showinfo("Éxito", message)
-                self.callback_reload() # Recargar la tabla principal
-                self.destroy()
-            else:
-                self.message_label.configure(text=f"Error al actualizar: {message}", text_color="red")
+#             if success:
+#                 messagebox.showinfo("Éxito", message)
+#                 self.callback_reload() # Recargar la tabla principal
+#                 self.destroy()
+#             else:
+#                 self.message_label.configure(text=f"Error al actualizar: {message}", text_color="red")
 
-        except Exception as e:
-            self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
+#         except Exception as e:
+#             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
 
-class AgregarProductoModal(customtkinter.CTkToplevel):
-    def __init__(self, master, callback_reload):
-        super().__init__(master)
-        self.title("Agregar Nuevo Producto")
-        self.geometry("500x550")
-        self.transient(master) # Mantener el modal encima de la ventana principal
-        self.grab_set()        # Bloquear interacción con otras ventanas
+
+
+
+# class AgregarProductoModal(customtkinter.CTkToplevel):
+#     def __init__(self, master, callback_reload):
+#         super().__init__(master)
+#         self.title("Agregar Nuevo Producto")
+#         self.geometry("500x550")
+#         self.transient(master) # Mantener el modal encima de la ventana principal
+#         self.grab_set()        # Bloquear interacción con otras ventanas
         
-        self.callback_reload = callback_reload # Función para recargar la tabla principal
+#         self.callback_reload = callback_reload # Función para recargar la tabla principal
 
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+#         self.grid_columnconfigure(0, weight=1)
+#         self.grid_rowconfigure(0, weight=1)
         
-        # Colores deben estar definidos en tu archivo (ej: SIDEBAR_COLOR)
-        # Si no lo tienes, usa un color como "gray10"
+#         # Colores deben estar definidos en tu archivo (ej: SIDEBAR_COLOR)
+#         # Si no lo tienes, usa un color como "gray10"
         
-        main_frame = customtkinter.CTkFrame(self, fg_color=SIDEBAR_COLOR, corner_radius=0)
-        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-        main_frame.grid_columnconfigure(0, weight=1)
+#         main_frame = customtkinter.CTkFrame(self, fg_color=SIDEBAR_COLOR, corner_radius=0)
+#         main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+#         main_frame.grid_columnconfigure(0, weight=1)
         
-        self._create_widgets(main_frame)
+#         self._create_widgets(main_frame)
 
-    def _create_widgets(self, main_frame):
-        # Título
-        customtkinter.CTkLabel(main_frame, text="REGISTRAR NUEVO PRODUCTO", 
-                               font=customtkinter.CTkFont(size=18, weight="bold"),
-                               text_color="white").grid(row=0, column=0, padx=20, pady=(20, 10), sticky="n")
+#     def _create_widgets(self, main_frame):
+#         # Título
+#         customtkinter.CTkLabel(main_frame, text="REGISTRAR NUEVO PRODUCTO", 
+#                                font=customtkinter.CTkFont(size=18, weight="bold"),
+#                                text_color="white").grid(row=0, column=0, padx=20, pady=(20, 10), sticky="n")
 
-        # Frame contenedor para inputs
-        form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
-        form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
-        form_frame.grid_columnconfigure(0, weight=1)
-        form_frame.grid_columnconfigure(1, weight=1)
+#         # Frame contenedor para inputs
+#         form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+#         form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+#         form_frame.grid_columnconfigure(0, weight=1)
+#         form_frame.grid_columnconfigure(1, weight=1)
 
-        row_num = 0
+#         row_num = 0
 
-        # Campo 1: Nombre
-        customtkinter.CTkLabel(form_frame, text="Nombre:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_nombre = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_nombre.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 1: Nombre
+#         customtkinter.CTkLabel(form_frame, text="Nombre:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_nombre = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_nombre.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 2: Categoría
-        customtkinter.CTkLabel(form_frame, text="Categoría:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        CATEGORIAS_OPTIONS = ["Chocolates", "Alimentos", "Bebidas", "Lácteos"]
-        self.option_categoria_var = customtkinter.StringVar(value=CATEGORIAS_OPTIONS[0])
+#         # Campo 2: Categoría
+#         customtkinter.CTkLabel(form_frame, text="Categoría:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         CATEGORIAS_OPTIONS = ["Chocolates", "Alimentos", "Bebidas", "Lácteos"]
+#         self.option_categoria_var = customtkinter.StringVar(value=CATEGORIAS_OPTIONS[0])
     
-        self.option_categoria = customtkinter.CTkOptionMenu(
-            form_frame, 
-            values=CATEGORIAS_OPTIONS, 
-            variable=self.option_categoria_var, # Vincula el OptionMenu a la variable
-            width=200
-        )
-        self.option_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         self.option_categoria = customtkinter.CTkOptionMenu(
+#             form_frame, 
+#             values=CATEGORIAS_OPTIONS, 
+#             variable=self.option_categoria_var, # Vincula el OptionMenu a la variable
+#             width=200
+#         )
+#         self.option_categoria.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
 
-        # Campo 3: Precio
-        customtkinter.CTkLabel(form_frame, text="Precio Unitario:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_precio = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_precio.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 3: Precio
+#         customtkinter.CTkLabel(form_frame, text="Precio Unitario:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_precio = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_precio.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 4: Stock
-        customtkinter.CTkLabel(form_frame, text="Stock Inicial:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_stock = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_stock.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 4: Stock
+#         customtkinter.CTkLabel(form_frame, text="Stock Inicial:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_stock = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_stock.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 5: Estado (OptionMenu)
-        customtkinter.CTkLabel(form_frame, text="Estado:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        estados_posibles = ["Listo para distribución", "En revisión de calidad", "En embalaje", "Agotado"]
-        self.option_estado = customtkinter.CTkOptionMenu(form_frame, values=estados_posibles, width=200)
-        self.option_estado.set(estados_posibles[0]) # Estado por defecto
-        self.option_estado.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 5: Estado (OptionMenu)
+#         customtkinter.CTkLabel(form_frame, text="Estado:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         estados_posibles = ["Listo para distribución", "En revisión de calidad", "En embalaje", "Agotado"]
+#         self.option_estado = customtkinter.CTkOptionMenu(form_frame, values=estados_posibles, width=200)
+#         self.option_estado.set(estados_posibles[0]) # Estado por defecto
+#         self.option_estado.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
         
-        # Campo 6: Lote
-        customtkinter.CTkLabel(form_frame, text="Lote:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
-        self.entry_lote = customtkinter.CTkEntry(form_frame, width=200)
-        self.entry_lote.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
-        row_num += 1
+#         # Campo 6: Lote
+#         customtkinter.CTkLabel(form_frame, text="Lote:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+#         self.entry_lote = customtkinter.CTkEntry(form_frame, width=200)
+#         self.entry_lote.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+#         row_num += 1
 
-        # Mensaje de error/éxito
-        self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
-        self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
+#         # Mensaje de error/éxito
+#         self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
+#         self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
 
-        # Frame de botones
-        btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
-        btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
-        btn_frame.grid_columnconfigure((0, 1), weight=1)
+#         # Frame de botones
+#         btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+#         btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
+#         btn_frame.grid_columnconfigure((0, 1), weight=1)
 
-        # Botón Guardar
-        customtkinter.CTkButton(
-            btn_frame, 
-            text="Registrar Producto", 
-            command=self._save_new_product,
-            fg_color="#00bf63", # Verde
-            hover_color="#00994f"
-        ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
+#         # Botón Guardar
+#         customtkinter.CTkButton(
+#             btn_frame, 
+#             text="Registrar Producto", 
+#             command=self._save_new_product,
+#             fg_color="#00bf63", # Verde
+#             hover_color="#00994f"
+#         ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
 
-        # Botón Cancelar
-        customtkinter.CTkButton(
-            btn_frame, 
-            text="Cancelar", 
-            command=self.destroy,
-            fg_color="#B22222", 
-            hover_color="#8B0000"
-        ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
+#         # Botón Cancelar
+#         customtkinter.CTkButton(
+#             btn_frame, 
+#             text="Cancelar", 
+#             command=self.destroy,
+#             fg_color="#B22222", 
+#             hover_color="#8B0000"
+#         ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
 
-    def _save_new_product(self):
-        """Valida los datos y envía la solicitud POST al servidor."""
-        nombre = self.entry_nombre.get()
-        categoria = self.entry_categoria.get()
-        precio_raw = self.entry_precio.get().replace(',', '.')
-        stock_raw = self.entry_stock.get()
-        lote = self.entry_lote.get()
-        estado = self.option_estado.get()
+#     def _save_new_product(self):
+#         """Valida los datos y envía la solicitud POST al servidor."""
+#         nombre = self.entry_nombre.get()
+#         categoria = self.entry_categoria.get()
+#         precio_raw = self.entry_precio.get().replace(',', '.')
+#         stock_raw = self.entry_stock.get()
+#         lote = self.entry_lote.get()
+#         estado = self.option_estado.get()
 
-        # Validación de campos vacíos
-        if not nombre or not categoria or not precio_raw or not stock_raw or not lote:
-            self.message_label.configure(text="Todos los campos son obligatorios.")
-            return
+#         # Validación de campos vacíos
+#         if not nombre or not categoria or not precio_raw or not stock_raw or not lote:
+#             self.message_label.configure(text="Todos los campos son obligatorios.")
+#             return
 
-        # Validación de Precio
-        try:
-            precio = float(precio_raw)
-            if precio <= 0: raise ValueError
-        except ValueError:
-            self.message_label.configure(text="El precio debe ser un número positivo (ej: 19.99).")
-            return
+#         # Validación de Precio
+#         try:
+#             precio = float(precio_raw)
+#             if precio <= 0: raise ValueError
+#         except ValueError:
+#             self.message_label.configure(text="El precio debe ser un número positivo (ej: 19.99).")
+#             return
 
-        # Validación de Stock
-        try:
-            stock = int(stock_raw)
-            if stock < 0: raise ValueError
-        except ValueError:
-            self.message_label.configure(text="El stock debe ser un número entero no negativo.")
-            return
+#         # Validación de Stock
+#         try:
+#             stock = int(stock_raw)
+#             if stock < 0: raise ValueError
+#         except ValueError:
+#             self.message_label.configure(text="El stock debe ser un número entero no negativo.")
+#             return
 
-        # Preparar los datos para enviar al servidor
-        new_product_data = {
-            "nombre": nombre, 
-            "categoria": categoria,
-            "precio_unitario": precio, 
-            "stock": stock,
-            "estado": estado,
-            "lote": lote
-        }
+#         # Preparar los datos para enviar al servidor
+#         new_product_data = {
+#             "nombre": nombre, 
+#             "categoria": categoria,
+#             "precio_unitario": precio, 
+#             "stock": stock,
+#             "estado": estado,
+#             "lote": lote
+#         }
 
-        # Lógica de conexión (POST)
-        try:
-            # 🚨 NOTA: Llama a la nueva función de conexión que crearemos en el siguiente paso
-            success, message = conexion_servidor.create_producto(new_product_data)
+#         # Lógica de conexión (POST)
+#         try:
+#             # 🚨 NOTA: Llama a la nueva función de conexión que crearemos en el siguiente paso
+#             success, message = conexion_servidor.create_producto(new_product_data)
             
-            if success:
-                messagebox.showinfo("Éxito", message)
-                self.callback_reload() # Recargar la tabla principal
-                self.destroy()
-            else:
-                self.message_label.configure(text=f"Error al registrar: {message}", text_color="red")
+#             if success:
+#                 messagebox.showinfo("Éxito", message)
+#                 self.callback_reload() # Recargar la tabla principal
+#                 self.destroy()
+#             else:
+#                 self.message_label.configure(text=f"Error al registrar: {message}", text_color="red")
 
-        except Exception as e:
-            self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
+#         except Exception as e:
+#             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
 
 class RegistrarVentaModal(customtkinter.CTkToplevel):
     def __init__(self, master, producto_id, nombre_producto, stock_actual, id_vendedor, callback_reload):

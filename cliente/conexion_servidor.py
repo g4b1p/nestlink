@@ -183,6 +183,7 @@ def update_producto(producto_id, data):
         print(f"Error de conexión al actualizar producto: {e}")
         return False, f"Error de conexión con el servidor: {e}"
 
+
 def create_producto(data):
     """Crea un nuevo producto enviando una solicitud POST al servidor."""
     url = f"{BASE_URL}/api/productos"
@@ -201,7 +202,6 @@ def create_producto(data):
         print(f"Error de conexión al registrar producto: {e}")
         return False, f"Error de conexión con el servidor: {e}"
 
-# Archivo: conexion_servidor.py (REEMPLAZAR esta función)
 
 def register_sale(sale_data):
     """
@@ -234,6 +234,7 @@ def register_sale(sale_data):
         print(f"Error de conexión al registrar venta: {e}")
         return False, f"Error de conexión con el servidor: {e}"
 
+
 def get_clientes():
     """Obtiene la lista de clientes (ID y Nombre) desde el servidor."""
     url = f"{BASE_URL}/api/clientes"
@@ -244,6 +245,7 @@ def get_clientes():
     except requests.exceptions.RequestException as e:
         print(f"Error al obtener clientes: {e}")
         return []
+
 
 def get_campañas(nombre_filtro=""):
     """Obtiene la lista de campañas desde el servidor, filtrando por nombre."""
@@ -299,6 +301,7 @@ def get_historial_ventas(categoria_filtro=""):
     except requests.exceptions.RequestException as e:
         print(f"Error al obtener historial de ventas: {e}")
         return []
+
 
 def get_categorias_ventas():
     """Obtiene las categorías únicas para el filtro del historial de ventas."""
