@@ -594,6 +594,105 @@ def get_clientes_list():
             conn.close()
 
 
+@app.route('/api/campañas', methods=['GET'])
+def get_campañas_list():
+    """Obtiene la lista de campañas, con filtro opcional por nombre."""
+    
+    # Obtenemos el parámetro de búsqueda (si existe)
+    nombre_filtro = request.args.get('nombre')
+    
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: 
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+            
+        cursor = conn.cursor(dictionary=True)
+        
+        # 🚨 Columnas de tu tabla 'campanas' (basado en tu screenshot)
+        sql = """
+            SELECT 
+                id_campana, 
+                nombre_campana, 
+                objetivo, 
+                DATE_FORMAT(fecha_inicio, '%Y-%m-%d') as fecha_inicio, 
+                DATE_FORMAT(fecha_fin, '%Y-%m-%d') as fecha_fin, 
+                resultados 
+            FROM campanas
+        """
+        params = ()
+        
+        if nombre_filtro:
+            sql += " WHERE nombre_campana LIKE %s"
+            params = (f'%{nombre_filtro}%',)
+            
+        sql += " ORDER BY fecha_inicio DESC" # Ordenar por más recientes
+        
+        cursor.execute(sql, params)
+        campañas = cursor.fetchall()
+        
+        return jsonify(campañas), 200
+
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al obtener campañas: {err}")
+        return jsonify({"message": f"Error de BD: {err}"}), 500
+    except Exception as e:
+        print(f"Error inesperado al obtener campañas: {e}")
+        return jsonify({"message": f"Error interno del servidor: {e}"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+
+# Archivo: app.py (AÑADIR esta nueva ruta)
+
+@app.route('/api/campañas/<int:campana_id>', methods=['PUT'])
+def update_campana(campana_id):
+    """Actualiza los datos de una campaña específica."""
+    data = request.json
+    
+    # Campos que el cliente puede enviar para actualizar
+    objetivo = data.get('objetivo')
+    fecha_inicio = data.get('fecha_inicio')
+    fecha_fin = data.get('fecha_fin')
+    resultados = data.get('resultados')
+    
+    conn = None
+    try:
+        conn = connect_db(DB_CONFIG)
+        if not conn: 
+            return jsonify({"message": "Error de conexión con la BD"}), 500
+            
+        cursor = conn.cursor()
+
+        # Construir la consulta de actualización. 
+        # NOTA: nombre_campana e id_campana NO se actualizan.
+        sql = """
+            UPDATE campanas 
+            SET objetivo = %s, fecha_inicio = %s, fecha_fin = %s, resultados = %s
+            WHERE id_campana = %s
+        """
+        params = (objetivo, fecha_inicio, fecha_fin, resultados, campana_id)
+        
+        cursor.execute(sql, params)
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": f"Campaña con ID {campana_id} no encontrada o sin cambios."}), 404
+            
+        return jsonify({"message": f"Campaña '{campana_id}' actualizada con éxito."}), 200
+
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al actualizar campaña: {err}")
+        return jsonify({"message": f"Error de BD: {err}"}), 500
+    except Exception as e:
+        print(f"Error inesperado al actualizar campaña: {e}")
+        return jsonify({"message": f"Error interno del servidor: {e}"}), 500
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+
 if __name__ == '__main__':
     # Creamos la carpeta UPLOAD_FOLDER por si acaso, antes de iniciar
     if not os.path.exists(UPLOAD_FOLDER):

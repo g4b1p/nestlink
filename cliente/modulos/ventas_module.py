@@ -381,10 +381,200 @@ class VentasModule(BaseAppWindow):
     # -----------------------------------------------------------------
 
     def _show_campañas_view(self):
+        """Muestra la interfaz para la gestión y listado de campañas de marketing."""
         self._clear_main_content()
-        customtkinter.CTkLabel(self.main_content, text="Gestión de Campañas (WIP)", font=customtkinter.CTkFont(size=20, weight="bold")).pack(padx=50, pady=50)
 
+        # Configuración de expansión (Fila 1 para la tabla, se expande)
+        self.main_content.grid_rowconfigure(0, weight=0)
+        self.main_content.grid_rowconfigure(1, weight=1)
+        self.main_content.grid_columnconfigure(0, weight=1)
 
+        # --- 1. Header de la Vista (Título, Buscador y Botón Agregar) ---
+        view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
+        view_header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=20)
+        view_header_frame.grid_columnconfigure(0, weight=1) # Frame izquierdo (título y buscador)
+        view_header_frame.grid_columnconfigure(1, weight=0) # Botón derecho
+
+        # Frame izquierdo para Título y Buscador (como en RRHH)
+        left_header_frame = customtkinter.CTkFrame(view_header_frame, fg_color="transparent")
+        left_header_frame.grid(row=0, column=0, sticky="w")
+
+        customtkinter.CTkLabel(
+            left_header_frame,
+            text="Gestión de Campañas",
+            font=customtkinter.CTkFont(size=20, weight="bold"), 
+            text_color="#5b94c6" 
+        ).grid(row=0, column=0, sticky="w")
+
+        # 🚨 Buscador (MODIFICADO para usar el patrón de RRHH)
+        self.campañas_buscador = customtkinter.CTkEntry(
+            left_header_frame,
+            placeholder_text="Buscar por nombre de campaña...",
+            width=250
+        )
+        self.campañas_buscador.grid(row=0, column=1, sticky="w", padx=(20, 5))
+        # 🚨 BIND: Llama a _filtrar_campañas_tabla cada vez que se suelta una tecla
+        self.campañas_buscador.bind("<KeyRelease>", self._filtrar_campañas_tabla)
+        # Botón Agregar Campaña (lado derecho)
+        customtkinter.CTkButton(
+            view_header_frame,
+            text="+ Agregar Campaña",
+            command=self._open_agregar_campaña_modal, # Creamos la función placeholder
+            fg_color="#555555",
+            hover_color="#444444",
+            height=35,
+            anchor="center"
+        ).grid(row=0, column=1, sticky="e")
+
+        # --- 2. Área de la Tabla (Contenedor, Cabecera y ScrollableFrame) ---
+        
+        self.table_border_container = customtkinter.CTkFrame(
+            self.main_content,
+            corner_radius=5,
+            fg_color=MAIN_BG_COLOR,
+            border_color="#5b94c6",
+            border_width=2
+        )
+        self.table_border_container.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        self.table_border_container.grid_columnconfigure(0, weight=1)
+        self.table_border_container.grid_rowconfigure(0, weight=0) # Cabecera
+        self.table_border_container.grid_rowconfigure(1, weight=1) # Cuerpo
+
+        # Definición de las columnas (Basado en tu solicitud y la BD)
+        columnas = ["Nombre Campaña", "Objetivo", "Fecha Inicio", "Fecha Final", "Resultado", "Acciones"]
+        NUM_COLUMNAS_DATOS = len(columnas)
+
+        self.header_fixed_frame = customtkinter.CTkFrame(
+            self.table_border_container,
+            fg_color="#5b94c6",
+            corner_radius=0
+        )
+        self.header_fixed_frame.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+        self.header_fixed_frame.grid_columnconfigure(NUM_COLUMNAS_DATOS, weight=0, minsize=17) # Compensación Scrollbar
+
+        # Pesos de las columnas (Ajusta según necesites)
+        # Objetivo y Resultado son 'text', les damos más peso.
+        column_weights = [2, 3, 1, 1, 3, 0] 
+
+        for i, col_name in enumerate(columnas):
+            self.header_fixed_frame.grid_columnconfigure(i, weight=column_weights[i])
+            customtkinter.CTkLabel(
+                self.header_fixed_frame,
+                text=col_name,
+                font=customtkinter.CTkFont(weight="bold", size=13),
+                text_color="white"
+            ).grid(row=0, column=i, padx=10, pady=8, sticky="w")
+
+        # Cuerpo de la Tabla (Scrollable)
+        self.campañas_tabla_frame = customtkinter.CTkScrollableFrame(
+            self.table_border_container,
+            fg_color="transparent"
+        )
+        self.campañas_tabla_frame.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
+
+        for i in range(len(columnas)):
+            self.campañas_tabla_frame.grid_columnconfigure(i, weight=column_weights[i])
+
+        # Cargar los datos (por ahora mostrará un mensaje vacío)
+        self._load_campañas_data(search_query=None)
+    
+    def _load_campañas_data(self, search_query):
+        """Carga datos de campañas del servidor y construye las filas."""
+        # Limpiamos el contenido anterior
+        for widget in self.campañas_tabla_frame.winfo_children():
+            widget.destroy()
+
+        # --- Obtención de Datos DEL SERVIDOR (Placeholder) ---
+        try:
+            # 🚨 Ahora llama a la API
+            campañas = conexion_servidor.get_campañas(search_query)
+        except Exception as e:
+            messagebox.showerror("Error de Carga", f"No se pudieron cargar las campañas: {e}")
+            campañas = []
+
+        if not campañas:
+            customtkinter.CTkLabel(
+                self.campañas_tabla_frame, 
+                text="No se encontraron campañas." if not search_query else f"No hay resultados para '{search_query}'.", 
+                text_color="gray"
+            ).grid(row=0, column=0, columnspan=6, padx=10, pady=20)
+            return
+
+        # --- Dibujar Filas de Datos ---
+        PAD_UNIFORME_Y = 5
+        
+        # 🚨 Definimos el tamaño de fuente más pequeño
+        small_font = customtkinter.CTkFont(size=11)
+        
+        for row, data in enumerate(campañas):
+            row_index = row
+            campaña_id = data.get("id_campana")
+            
+            # Col 0: Nombre Campaña
+            customtkinter.CTkLabel(
+                self.campañas_tabla_frame, text=data.get("nombre_campana", "N/A"), anchor="w"
+            ).grid(row=row_index, column=0, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+
+            # Col 1: Objetivo (con ajuste de línea)
+            customtkinter.CTkLabel(
+                self.campañas_tabla_frame, text=data.get("objetivo", "-"), anchor="nw", wraplength=300, font=small_font # Ajusta 300 al ancho deseado
+            ).grid(row=row_index, column=1, padx=10, pady=PAD_UNIFORME_Y, sticky="nw")
+            
+            # Col 2: Fecha Inicio
+            customtkinter.CTkLabel(
+                self.campañas_tabla_frame, text=data.get("fecha_inicio", "N/A"), anchor="w"
+            ).grid(row=row_index, column=2, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+
+            # Col 3: Fecha Final
+            customtkinter.CTkLabel(
+                self.campañas_tabla_frame, text=data.get("fecha_fin", "N/A"), anchor="w"
+            ).grid(row=row_index, column=3, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+
+            # Col 4: Resultado (con ajuste de línea)
+            customtkinter.CTkLabel(
+                self.campañas_tabla_frame, text=data.get("resultados", "-"), anchor="nw", wraplength=300, font=small_font # Ajusta 300
+            ).grid(row=row_index, column=4, padx=10, pady=PAD_UNIFORME_Y, sticky="nw")
+
+            # Col 5: Acciones (Solo Editar)
+            actions_frame = customtkinter.CTkFrame(self.campañas_tabla_frame, fg_color="transparent")
+            actions_frame.grid(row=row_index, column=5, padx=10, pady=PAD_UNIFORME_Y, sticky="w")
+
+            editar_btn = customtkinter.CTkButton(
+                actions_frame,
+                text="Editar",
+                command=lambda id=campaña_id, data=data: self._open_editar_campaña_modal(id, data),
+                width=75,
+                fg_color="#5b94c6", 
+                hover_color="#3c6f9e", 
+            )
+            editar_btn.grid(row=0, column=0, sticky="w")
+
+    def _filtrar_campañas_tabla(self, event):
+        """Función que se llama al escribir en el buscador (patrón RRHH)."""
+        nombre_filtro = self.campañas_buscador.get()
+        # Llama a la función de carga con el filtro
+        self._load_campañas_data(search_query=nombre_filtro)
+
+    def _open_agregar_campaña_modal(self):
+        """Abre el modal para crear una nueva campaña."""
+        messagebox.showinfo("Acceso Denegado", "No tienes permiso para agregar campañas. Esta función está reservada para el sector de Marketing.")
+        # modal = AgregarCampañaModal(self.master, self._load_campañas_data)
+
+    def _open_editar_campaña_modal(self, campaña_id, campaña_data):
+            """Abre el modal para editar una campaña existente."""
+            
+            # 🚨 CAMBIO AQUÍ: Obtenemos el texto actual del buscador
+            filtro_actual = self.campañas_buscador.get() if hasattr(self, 'campañas_buscador') else ""
+
+            # 🚨 Llamamos al modal, pasando el filtro actual
+            modal = EditarCampañaModal(
+                self.master, 
+                campaña_id, 
+                campaña_data, 
+                self._load_campañas_data,
+                search_query_current=filtro_actual # Nuevo argumento
+            )
+    
     # -----------------------------------------------------------------
     # VISTA 4: HISTORIAL DE VENTAS (Placeholder)
     # -----------------------------------------------------------------
@@ -396,7 +586,7 @@ class VentasModule(BaseAppWindow):
 # Archivo: ventas_module.py (Añadir al final del archivo)
 
 class EditarProductoModal(customtkinter.CTkToplevel):
-    def __init__(self, master, producto_id, producto_data, callback_reload):
+    def __init__(self, master, campaña_id, campaña_data, callback_reload, search_query_current=""):
         super().__init__(master)
         self.title(f"Editar Producto: {producto_data['nombre']}")
         self.geometry("500x550")
@@ -499,8 +689,8 @@ class EditarProductoModal(customtkinter.CTkToplevel):
             btn_frame, 
             text="Cancelar", 
             command=self.destroy,
-            fg_color="#5b94c6", # Celeste
-            hover_color="#3c6f9e"
+            fg_color="#B22222", 
+            hover_color="#8B0000"
         ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
 
@@ -657,8 +847,8 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
             btn_frame, 
             text="Cancelar", 
             command=self.destroy,
-            fg_color="#5b94c6", # Celeste
-            hover_color="#3c6f9e"
+            fg_color="#B22222", 
+            hover_color="#8B0000"
         ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
 
@@ -853,6 +1043,153 @@ class RegistrarVentaModal(customtkinter.CTkToplevel):
                 self.destroy()
             else:
                 self.message_label.configure(text=f"Error al registrar venta: {message}", text_color="red")
+        except Exception as e:
+            self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
+
+
+# Archivo: ventas_module.py (AÑADIR esta nueva clase)
+
+class EditarCampañaModal(customtkinter.CTkToplevel):
+    def __init__(self, master, campaña_id, campaña_data, callback_reload, search_query_current=""):
+        super().__init__(master)
+        self.title(f"Editar Campaña: {campaña_data['nombre_campana']}")
+        self.geometry("600x600")
+        self.transient(master) 
+        self.grab_set() 
+        
+        self.campaña_id = campaña_id
+        self.campaña_data = campaña_data
+        self.callback_reload = callback_reload # Función para recargar la tabla principal
+        self.search_query_current = search_query_current
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        # 🚨 Asegúrate de que SIDEBAR_COLOR esté definido o usa un color fijo como "#2b2b2b"
+        # Usaré el color gris oscuro que parece ser tu base
+        main_frame = customtkinter.CTkFrame(self, fg_color=SIDEBAR_COLOR, corner_radius=0)
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        main_frame.grid_columnconfigure(0, weight=1)
+        
+        self._create_widgets(main_frame)
+
+    def _create_widgets(self, main_frame):
+        # Título
+        customtkinter.CTkLabel(main_frame, text="MODIFICAR DATOS DE CAMPAÑA", 
+                                font=customtkinter.CTkFont(size=18, weight="bold"),
+                                text_color="white").grid(row=0, column=0, padx=20, pady=(20, 10), sticky="n")
+
+        # Frame contenedor para inputs (Scrollable)
+        form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        main_frame.grid_rowconfigure(1, weight=0)
+        form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        form_frame.grid_columnconfigure(0, weight=0) 
+        form_frame.grid_columnconfigure(1, weight=1)
+
+        row_num = 0
+
+        # Campo 1: Nombre Campaña (Solo lectura)
+        customtkinter.CTkLabel(form_frame, text="Nombre Campaña:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_nombre = customtkinter.CTkEntry(form_frame, width=350)
+        self.entry_nombre.insert(0, self.campaña_data['nombre_campana'])
+        self.entry_nombre.configure(state="disabled", text_color="gray")
+        self.entry_nombre.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 2: Objetivo (CTkTextbox)
+        customtkinter.CTkLabel(form_frame, text="Objetivo:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="nw")
+        # 🚨 NOTA: Para no usar scroll, reducimos la altura del Textbox para que entre todo.
+        self.entry_objetivo = customtkinter.CTkTextbox(form_frame, height=50, width=350) # Altura reducida
+        self.entry_objetivo.insert("0.0", self.campaña_data['objetivo'])
+        self.entry_objetivo.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        # Campo 3: Fecha Inicio
+        customtkinter.CTkLabel(form_frame, text="Fecha Inicio (YYYY-MM-DD):", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_fecha_inicio = customtkinter.CTkEntry(form_frame, width=350)
+        self.entry_fecha_inicio.insert(0, self.campaña_data['fecha_inicio']) 
+        self.entry_fecha_inicio.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 4: Fecha Final
+        customtkinter.CTkLabel(form_frame, text="Fecha Final (YYYY-MM-DD):", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="w")
+        self.entry_fecha_fin = customtkinter.CTkEntry(form_frame, width=350)
+        self.entry_fecha_fin.insert(0, self.campaña_data['fecha_fin'])
+        self.entry_fecha_fin.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+        
+        # Campo 5: Resultado (CTkTextbox)
+        customtkinter.CTkLabel(form_frame, text="Resultado:", anchor="w", text_color="white").grid(row=row_num, column=0, padx=10, pady=(15, 2), sticky="nw")
+        # 🚨 NOTA: Altura reducida
+        self.entry_resultados = customtkinter.CTkTextbox(form_frame, height=50, width=350) 
+        self.entry_resultados.insert("0.0", self.campaña_data['resultados'])
+        self.entry_resultados.grid(row=row_num, column=1, padx=10, pady=(15, 2), sticky="ew")
+        row_num += 1
+
+        # Mensaje de error/éxito
+        # 🚨 Movemos la fila 2 para arriba, sigue al form_frame
+        self.message_label = customtkinter.CTkLabel(main_frame, text="", text_color="red")
+        self.message_label.grid(row=2, column=0, padx=20, pady=(5, 10), sticky="ew")
+
+        # Frame de botones
+        # 🚨 Movemos la fila 3 para arriba
+        btn_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        btn_frame.grid(row=3, column=0, padx=20, pady=(10, 20), sticky="ew")
+        btn_frame.grid_columnconfigure((0, 1), weight=1)
+
+        # Botones (sin cambios)
+        customtkinter.CTkButton(
+            btn_frame, text="Guardar Cambios", command=self._save_changes,
+            fg_color="#00bf63", hover_color="#00994f"
+        ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
+
+        customtkinter.CTkButton(
+            btn_frame, text="Cancelar", command=self.destroy,
+            fg_color="#B22222", hover_color="#8B0000"
+        ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
+
+    def _save_changes(self):
+        """Valida los datos y envía la solicitud PUT al servidor."""
+        
+        # Obtener datos de CTkEntry y CTkTextbox
+        objetivo = self.entry_objetivo.get("0.0", "end-1c").strip()
+        fecha_inicio = self.entry_fecha_inicio.get().strip()
+        fecha_fin = self.entry_fecha_fin.get().strip()
+        resultados = self.entry_resultados.get("0.0", "end-1c").strip()
+
+        # Validación básica (no vacíos)
+        if not objetivo or not fecha_inicio or not fecha_fin or not resultados:
+            self.message_label.configure(text="Todos los campos son obligatorios.")
+            return
+
+        # Validación de formato de fecha (simple)
+        import re
+        date_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+        if not date_pattern.match(fecha_inicio) or not date_pattern.match(fecha_fin):
+            self.message_label.configure(text="El formato de fecha debe ser YYYY-MM-DD.")
+            return
+
+        # Preparar los datos para enviar al servidor
+        update_data = {
+            "objetivo": objetivo,
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": fecha_fin,
+            "resultados": resultados
+        }
+
+        # Lógica de conexión (PUT)
+        try:
+            # 🚨 Llama a la nueva función de conexión
+            success, message = conexion_servidor.update_campaña(self.campaña_id, update_data)
+            
+            if success:
+                messagebox.showinfo("Éxito", message)
+                # 🚨 CAMBIO AQUÍ: Llamamos a la función de recarga pasando el filtro guardado
+                self.callback_reload(search_query=self.search_query_current) 
+                self.destroy()
+            else:
+                self.message_label.configure(text=f"Error al actualizar: {message}", text_color="red")
+
         except Exception as e:
             self.message_label.configure(text=f"Error de conexión: {e}", text_color="red")
 

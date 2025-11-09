@@ -244,3 +244,42 @@ def get_clientes():
     except requests.exceptions.RequestException as e:
         print(f"Error al obtener clientes: {e}")
         return []
+
+def get_campañas(nombre_filtro=""):
+    """Obtiene la lista de campañas desde el servidor, filtrando por nombre."""
+    url = f"{BASE_URL}/api/campañas"
+    params = {}
+    if nombre_filtro:
+        params = {'nombre': nombre_filtro}
+        
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error al obtener campañas: {e}")
+        return []
+
+
+def update_campaña(campana_id, data):
+    """Envía una solicitud PUT para actualizar una campaña."""
+    url = f"{BASE_URL}/api/campañas/{campana_id}"
+    try:
+        response = requests.put(url, json=data)
+        response.raise_for_status() # Lanza excepción para códigos 4xx/5xx
+        
+        # Si tiene éxito (código 200), devuelve éxito y el mensaje del servidor
+        return True, response.json().get('message', "Campaña actualizada.")
+    
+    except requests.exceptions.HTTPError as http_err:
+        # Captura errores específicos (4xx, 5xx)
+        try:
+            error_message = response.json().get('message', str(http_err))
+        except:
+            error_message = str(http_err)
+        return False, error_message
+        
+    except requests.exceptions.RequestException as e:
+        # Captura otros errores de red/conexión
+        print(f"Error de conexión al actualizar campaña: {e}")
+        return False, f"Error de conexión: {e}"
