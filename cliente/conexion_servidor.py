@@ -340,3 +340,81 @@ def create_campaña(data):
         # Captura otros errores de red/conexión
         print(f"Error de conexión al registrar campaña: {e}")
         return False, f"Error de conexión con el servidor: {e}"
+    
+# FUNCIONES DE OBTENCIÓN (GET) PARA LOGÍSTICA
+
+def get_productos_list():
+    """Obtiene una lista de todos los productos (Nombre e ID) para selectores."""
+    url = f"{BASE_URL}/api/productos/list"
+    try:
+        response = requests.get(url)
+        response.raise_for_status() 
+        # Devuelve una lista de diccionarios, ej: [{'id': 1, 'nombre': 'Choclo'}]
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al obtener lista de productos: {e}")
+        return []
+
+def get_movimientos_rango(start_date, end_date):
+    """Obtiene movimientos logísticos dentro de un rango de fechas (YYYY-MM-DD)."""
+    url = f"{BASE_URL}/api/movimientos_logisticos"
+    params = {
+        'start_date': start_date,
+        'end_date': end_date
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status() 
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al obtener movimientos: {e}")
+        return []
+
+# FUNCIONES DE ACCIÓN (POST/PUT) PARA LOGÍSTICA
+
+def create_movimiento(data):
+    """Registra un nuevo movimiento logístico."""
+    url = f"{BASE_URL}/api/movimientos_logisticos"
+    
+    try:
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        
+        return True, response.json().get('message', "Movimiento registrado correctamente.")
+
+    except requests.exceptions.HTTPError as http_err:
+        try:
+            error_message = response.json().get('message', str(http_err))
+        except requests.exceptions.JSONDecodeError:
+            error_message = f"Error {response.status_code}: {response.text}"
+            
+        print(f"Error HTTP al registrar movimiento: {error_message}")
+        return False, error_message
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al registrar movimiento: {e}")
+        return False, f"Error de conexión con el servidor: {e}"
+
+def update_movimiento(movimiento_id, data):
+    """Actualiza los datos de un movimiento logístico existente."""
+    url = f"{BASE_URL}/api/movimientos_logisticos/{movimiento_id}"
+    
+    try:
+        response = requests.put(url, json=data)
+        response.raise_for_status()
+        
+        return True, response.json().get('message', f"Movimiento {movimiento_id} actualizado correctamente.")
+
+    except requests.exceptions.HTTPError as http_err:
+        try:
+            error_message = response.json().get('message', str(http_err))
+        except requests.exceptions.JSONDecodeError:
+            error_message = f"Error {response.status_code}: {response.text}"
+            
+        print(f"Error HTTP al actualizar movimiento: {error_message}")
+        return False, error_message
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión al actualizar movimiento: {e}")
+        return False, f"Error de conexión con el servidor: {e}"

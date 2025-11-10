@@ -32,6 +32,14 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Función auxiliar para obtener conexión
+def get_db_connection():
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        return conn
+    except mysql.connector.Error as err:
+        return None
+
 # =================================================================
 # RUTA: /login
 # =================================================================
@@ -823,6 +831,168 @@ def get_categorias_ventas():
     finally:
         if conn and conn.is_connected():
             conn.close()
+
+
+# =================================================================
+# RUTAS MÓDULO LOGÍSTICA
+# =================================================================
+
+@app.route('/api/movimientos_logisticos', methods=['GET', 'POST'])
+def movimientos_logisticos():
+    """Ruta para GET (Cargar por rango de fecha) y POST (Crear)."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"message": "Error de conexión a la base de datos"}), 500
+
+    # 1. GET: Cargar movimientos por rango de fecha
+    if request.method == 'GET':
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        if not start_date or not end_date:
+            return jsonify({"message": "Faltan parámetros de fecha (start_date, end_date)"}), 400
+        
+        cursor = conn.cursor(dictionary=True)
+        try:
+            # ✅ CORRECCIÓN FINAL DEL JOIN
+            query = """
+                SELECT 
+                    ml.id_movimiento,
+                    ml.id_producto,
+                    p.nombre AS nombre_producto,
+                    ml.tipo_movimiento,
+                    ml.cantidad, 
+                    DATE_FORMAT(ml.fecha_movimiento, '%Y-%m-%d') AS fecha_movimiento,
+                    ml.origen_destino
+                FROM movimientoslogisticos ml
+                LEFT JOIN productos p ON ml.id_producto = p.id_producto  /* 🚨 CORREGIDO DE p.id A p.id_producto */
+                WHERE ml.fecha_movimiento BETWEEN %s AND %s
+                ORDER BY ml.fecha_movimiento DESC
+            """
+            cursor.execute(query, (start_date, end_date))
+            movimientos = cursor.fetchall()
+            
+            return jsonify(movimientos), 200
+        except Exception as e:
+            # Imprime el error exacto en el servidor para el diagnóstico
+            print(f"Error de SQL: {e}") 
+            return jsonify({"message": "Error interno del servidor al consultar BD."}), 500
+        finally:
+            cursor.close()
+            conn.close()
+
+    # 2. POST: Crear nuevo movimiento
+    elif request.method == 'POST':
+        data = request.get_json()
+        
+        # 🚨 PASO 1: VALIDACIÓN CORREGIDA. Verificamos los campos que SÍ envía el cliente.
+        required_fields = ['id_producto', 'tipo_movimiento', 'cantidad', 'fecha_movimiento', 'origen_destino']
+        
+        # Verificamos que todos los campos requeridos estén presentes y no sean nulos
+        if not all(field in data and data[field] is not None and str(data[field]).strip() for field in required_fields):
+            missing_fields = [field for field in required_fields if field not in data or not str(data[field]).strip()]
+            return jsonify({"message": f"Datos de movimiento incompletos. Faltan: {', '.join(missing_fields)}"}), 400
+
+        # Opcional: Validar que cantidad sea un número (si el cliente no lo hace)
+        try:
+            data['cantidad'] = int(data['cantidad'])
+        except ValueError:
+            return jsonify({"message": "El campo 'cantidad' debe ser un número entero."}), 400
+        
+        cursor = conn.cursor()
+        try:
+            # 🚨 PASO 2: SQL INSERT CORREGIDO. Incluye id_producto.
+            query = """
+                INSERT INTO movimientoslogisticos 
+                (id_producto, tipo_movimiento, cantidad, fecha_movimiento, origen_destino) 
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            
+            # 🚨 PASO 3: Los valores coinciden en orden con la consulta
+            values = (
+                data.get('id_producto'),
+                data.get('tipo_movimiento'), 
+                data.get('cantidad'), 
+                data.get('fecha_movimiento'),
+                data.get('origen_destino')
+            )
+            
+            cursor.execute(query, values)
+            conn.commit()
+            movimiento_id = cursor.lastrowid
+            return jsonify({"message": f"Movimiento logístico creado. ID: {movimiento_id}"}), 201
+        except Exception as e:
+            conn.rollback()
+            print(f"Error al crear movimiento: {e}")
+            return jsonify({"message": f"Error de BD al crear movimiento: {str(e)}"}), 500
+        finally:
+            cursor.close()
+            conn.close()
+
+# ----------------------------------------------------------------
+
+@app.route('/api/movimientos_logisticos/<int:movimiento_id>', methods=['PUT'])
+def update_movimiento_logistico(movimiento_id):
+    """Ruta para PUT (Actualizar un movimiento existente)."""
+    data = request.get_json()
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"message": "Error de conexión a la base de datos"}), 500
+    
+    cursor = conn.cursor()
+    try:
+        query = """
+            UPDATE movimientoslogisticos SET 
+            cantidad = %s, fecha_movimiento = %s, origen_destino = %s, tipo_movimiento = %s 
+            WHERE id_movimiento = %s
+        """
+        values = (
+            data.get('cantidad'), 
+            data.get('fecha_movimiento'), 
+            data.get('origen_destino'),
+            data.get('tipo_movimiento'), 
+            movimiento_id
+        )
+        cursor.execute(query, values)
+        conn.commit()
+        updated = cursor.rowcount > 0
+
+        if updated:
+            return jsonify({"message": f"Movimiento {movimiento_id} actualizado."}), 200
+        else:
+            return jsonify({"message": f"Movimiento {movimiento_id} no encontrado."}), 404
+    except Exception as e:
+        conn.rollback()
+        print(f"Error al actualizar movimiento: {e}")
+        return jsonify({"message": f"Error de BD al actualizar movimiento: {str(e)}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# ----------------------------------------------------------------
+
+@app.route('/api/productos/list', methods=['GET'])
+def productos_list():
+    """Ruta para obtener una lista simple de productos (ID y Nombre) para el modal."""
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"message": "Error de conexión a la base de datos"}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # ✅ CONSULTA SQL CORREGIDA
+        query = "SELECT id_producto, nombre FROM productos ORDER BY nombre ASC"
+        cursor.execute(query)
+        productos = cursor.fetchall()
+        return productos
+    except Exception as e:
+        # Es bueno registrar el error aquí
+        print(f"Error de SQL: {e}") 
+        raise e # Re-lanza la excepción para que Flask la maneje
+    finally:
+        cursor.close()
+        conn.close()
+
 
 
 if __name__ == '__main__':
