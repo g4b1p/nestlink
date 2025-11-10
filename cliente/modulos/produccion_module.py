@@ -602,7 +602,7 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
     def _save_new_product(self):
         """Valida los datos y envía la solicitud POST al servidor."""
         nombre = self.entry_nombre.get()
-        categoria = self.entry_categoria.get()
+        categoria = self.option_categoria.get()
         precio_raw = self.entry_precio.get().replace(',', '.')
         stock_raw = self.entry_stock.get()
         lote = self.entry_lote.get()
