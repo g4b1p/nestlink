@@ -513,27 +513,43 @@ class AgregarPostulanteModal(customtkinter.CTkToplevel):
         self.cv_filepath = None
 
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        main_frame = customtkinter.CTkFrame(self, fg_color="#5b94c6", corner_radius=0)
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        main_frame.grid_columnconfigure(0, weight=1)
+        
+        form_frame = customtkinter.CTkFrame(main_frame, fg_color="transparent")
+        form_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        form_frame.grid_columnconfigure(0, weight=1)
+        
+        customtkinter.CTkLabel(main_frame, text="NUEVO CANDIDATO", 
+                               font=customtkinter.CTkFont(size=18, weight="bold"),
+                               text_color="white").grid(row=0, column=0, padx=20, pady=(20, 10), sticky="n")
 
-        customtkinter.CTkLabel(self, text="Datos del Candidatos", font=customtkinter.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=20)
+        self.nombre_entry = customtkinter.CTkEntry(form_frame, placeholder_text="Nombre Completo", width=350)
+        self.nombre_entry.grid(row=0, column=0, pady=10, sticky="ew")
 
-        self.nombre_entry = customtkinter.CTkEntry(self, placeholder_text="Nombre Completo", width=350)
-        self.nombre_entry.grid(row=1, column=0, pady=10)
+        self.email_entry = customtkinter.CTkEntry(form_frame, placeholder_text="Email", width=350)
+        self.email_entry.grid(row=1, column=0, pady=10, sticky="ew")
 
-        self.email_entry = customtkinter.CTkEntry(self, placeholder_text="Email", width=350)
-        self.email_entry.grid(row=2, column=0, pady=10)
-
-        cv_frame = customtkinter.CTkFrame(self, fg_color="transparent")
-        cv_frame.grid(row=3, column=0, pady=10)
+        cv_frame = customtkinter.CTkFrame(form_frame, fg_color="transparent")
+        cv_frame.grid(row=2, column=0, pady=10, sticky="ew")
         cv_frame.grid_columnconfigure(0, weight=1)
 
-        self.cv_path_label = customtkinter.CTkLabel(cv_frame, text="Ningún archivo seleccionado", text_color="gray")
+        self.cv_path_label = customtkinter.CTkLabel(cv_frame, text="Ningún archivo seleccionado", text_color="black")
         self.cv_path_label.grid(row=0, column=0, sticky="w", padx=(0, 10))
 
         # 🟢 Se mantiene el método _seleccionar_cv que guarda la ruta en self.cv_filepath
         customtkinter.CTkButton(cv_frame, text="Subir CV...", command=self._seleccionar_cv, width=100).grid(row=0, column=1)
 
         # 🎨 Botón Guardar Postulante: Llama a la nueva lógica _guardar_postulante
-        customtkinter.CTkButton(self, text="Guardar Candidato", command=self._guardar_postulante, fg_color=CELESTE_COLOR).grid(row=4, column=0, pady=20)
+        customtkinter.CTkButton(main_frame, 
+                                text="Guardar Candidato", 
+                                command=self._guardar_postulante, 
+                                fg_color="#00bf63", # Verde de Confirmación de Venta
+                                hover_color="#00994f"
+                                ).grid(row=2, column=0, pady=(10, 20), padx=20, sticky="ew")
 
 
     def _seleccionar_cv(self):
@@ -596,15 +612,43 @@ class HistorialCapacitacionesModal(customtkinter.CTkToplevel):
         self.nombre_empleado = nombre_empleado
         self.title(f"Historial de {nombre_empleado}")
         self.geometry("600x400")
-
+        self.transient(master)
+        self.grab_set()
+        
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        main_frame = customtkinter.CTkFrame(self, fg_color="#5b94c6", corner_radius=0)
+        # El sticky="nsew", padx=0, pady=0 asegura que se pegue a los bordes de la Fila 0
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        
+        # Dentro del main_frame, el grid debe configurarse para los elementos internos
+        main_frame.grid_columnconfigure(0, weight=1)
+        # Esta línea (main_frame.grid_rowconfigure(0, weight=1)) probablemente debería ser '2' o '3'
+        # si el contenido interno (el scrollable frame) está en la fila 2 o 3 del main_frame.
+        # Pero no afecta al borde blanco.
+        # main_frame.grid_rowconfigure(0, weight=1)
 
-        customtkinter.CTkLabel(self, text=f"Historial de Formación: {nombre_empleado}", font=customtkinter.CTkFont(size=18, weight="bold")).grid(row=0, column=0, pady=10)
+        customtkinter.CTkLabel(main_frame, 
+                               text="HISTORIAL DE FORMACIÓN", 
+                               font=customtkinter.CTkFont(size=18, weight="bold"),
+                               text_color="white").grid(row=0, column=0, padx=20, pady=(20, 5), sticky="n")
 
-        self.historial_frame = customtkinter.CTkScrollableFrame(self, corner_radius=5, label_text="Capacitaciones Completadas")
-        self.historial_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
+        customtkinter.CTkLabel(main_frame, 
+                               text=self.nombre_empleado, 
+                               font=customtkinter.CTkFont(size=14, weight="bold"),
+                               text_color="yellow").grid(row=1, column=0, padx=20, pady=(0, 15), sticky="n")
 
+        self.historial_frame = customtkinter.CTkScrollableFrame(
+            main_frame, # Colocado dentro del main_frame
+            corner_radius=5, 
+            label_text="Capacitaciones Completadas",
+            fg_color="white", # El contenido debe tener un fondo claro para la lectura
+            label_text_color="black"
+        )
+        self.historial_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        
+        # Cargar los datos y crear la tabla
         self._load_historial()
 
     def _load_historial(self):
