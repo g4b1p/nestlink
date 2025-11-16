@@ -315,7 +315,7 @@ class ProduccionModule(BaseAppWindow):
 
     def _open_editar_producto_modal(self, producto_id, producto_data):
         """Abre el modal para editar un producto existente."""
-        modal = EditarProductoModal(self.master, producto_id, producto_data, self._show_productos_view)
+        modal = EditarProductoModal(self.master, producto_id, producto_data, self._load_productos_data)
 
     def _open_vender_producto_modal(self, producto_id, nombre_producto, stock_actual, id_vendedor):
             # 🚨 SOLUCIÓN: La cabecera ahora acepta 5 argumentos, incluyendo 'id_vendedor'.
@@ -646,7 +646,8 @@ class AgregarProductoModal(customtkinter.CTkToplevel):
             
             if success:
                 messagebox.showinfo("Éxito", message)
-                self.callback_reload() # Recargar la tabla principal
+                # En lugar de: self.callback_reload()
+                self.callback_reload("Todos los estados")
                 self.destroy()
             else:
                 self.message_label.configure(text=f"Error al registrar: {message}", text_color="red")
@@ -804,7 +805,8 @@ class EditarProductoModal(customtkinter.CTkToplevel):
             
             if success:
                 messagebox.showinfo("Éxito", message)
-                self.callback_reload() # Recargar la tabla principal
+                # En lugar de: self.callback_reload()
+                self.callback_reload("Todos los estados")
                 self.destroy()
             else:
                 self.message_label.configure(text=f"Error al actualizar: {message}", text_color="red")

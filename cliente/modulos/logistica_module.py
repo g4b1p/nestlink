@@ -102,6 +102,8 @@ class LogisticaModule(BaseAppWindow):
         self.main_content.grid_rowconfigure(0, weight=0)
         self.main_content.grid_rowconfigure(1, weight=1)
         self.main_content.grid_columnconfigure(0, weight=1)
+        
+        self.main_content.grid_columnconfigure(1, weight=0)
 
         # --- 1. Header de la Vista (Título y Filtro) ---
         view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
@@ -638,6 +640,8 @@ class LogisticaModule(BaseAppWindow):
         self.main_content.grid_rowconfigure(0, weight=0)
         self.main_content.grid_rowconfigure(1, weight=1)
         self.main_content.grid_columnconfigure(0, weight=1)
+        
+        self.main_content.grid_columnconfigure(1, weight=0)
 
         # --- 1. Header de la Vista (Título y Filtro) ---
         view_header_frame = customtkinter.CTkFrame(self.main_content, fg_color="transparent")
