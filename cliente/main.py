@@ -226,6 +226,12 @@ class LoginApp(customtkinter.CTk):
             messagebox.showerror("Error de Conexión", f"No se pudo conectar al servidor de autenticación. Detalle: {e}")
             self.status_label.configure(text="Error de conexión.", text_color="red")
 
+    def clear_login_form(self):
+        """Limpia los campos de entrada de usuario y contraseña y el mensaje de estado."""
+        self.username_entry.delete(0, customtkinter.END)
+        self.password_entry.delete(0, customtkinter.END)
+        self.status_label.configure(text="")
+        self.status_label.update_idletasks() # Forzar la actualización inmediata del widget
     
     def open_module_window(self, user_info, role):
         """Abre la ventana del módulo basado en el rol."""

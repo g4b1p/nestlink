@@ -192,6 +192,10 @@ class BaseAppWindow(customtkinter.CTkToplevel):
         """
         Cierra la ventana del módulo y vuelve a mostrar la ventana principal (Login).
         """ 
+        
+        if hasattr(self.master, 'clear_login_form'):
+            self.master.clear_login_form()
+        
         self.master.deiconify() 
         self.destroy() 
 
