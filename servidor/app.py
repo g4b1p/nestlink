@@ -1,22 +1,54 @@
-from flask import Flask, request, jsonify, send_from_directory
+print("--- 1. EL SCRIPT HA COMENZADO ---") 
+
+try:
+    from flask import Flask, request, jsonify, send_from_directory
+    from flask_cors import CORS # Agregado por si acaso, si no lo tienes instalado coméntalo
+    print("--- 2. Flask importado correctamente ---")
+except ImportError as e:
+    print(f"!!! ERROR IMPORTANDO FLASK: {e}")
+
 import os
 import bcrypt
-import mysql.connector
+
+try:
+    # Importamos PyMySQL con un alias simple
+    import pymysql
+    # Importamos el módulo de errores de PyMySQL
+    from pymysql import err as PyMySQLError
+    from pymysql import cursors as pymysql_cursors
+    
+    # Creamos un alias para la función connect de PyMySQL
+    pymysql_connect = pymysql.connect
+    
+    print("--- 3. PyMySQL importado y listo ---")
+except Exception as e:
+    print(f"!!! ERROR AL IMPORTAR PYMYSQL: {e}")
+
+
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from decimal import Decimal
 
-# Importa tu archivo de base de datos
-from database import connect_db
+# COMENTAMOS ESTO PARA EVITAR ERRORES SI DATABASE.PY TIENE CÓDIGO DE FIREBASE
+# from database import connect_db 
 
 # Crea la carpeta si no existe
 UPLOAD_FOLDER = 'data/cvs'
 if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+    try:
+        os.makedirs(UPLOAD_FOLDER)
+        print(f"--- Carpeta creada: {UPLOAD_FOLDER} ---")
+    except Exception as e:
+        print(f"!!! ERROR CREANDO CARPETA: {e}")
 
 app = Flask(__name__)
+# Habilitar CORS simplificado para desarrollo
+try:
+    CORS(app)
+except:
+    pass 
 
-# Configuración de la base de datos (se usará en cada función)
+# Configuración de la base de datos
 DB_CONFIG = {
     'user': 'root',
     'password': '',
@@ -34,11 +66,29 @@ def allowed_file(filename):
 
 # Función auxiliar para obtener conexión
 def get_db_connection():
+    print("   >>> (A) Entrando a get_db_connection...")
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        print(f"   >>> (B) Configuración usada: {DB_CONFIG}")
+        print("   >>> (C) Intentando ejecutar PyMySQL.connect...")
+        
+        # CAMBIO CLAVE: Configuramos el cursor para diccionarios AQUÍ.
+        # Esto elimina la necesidad de pasar 'dictionary=True' o 'cursorclass=...'
+        conn = pymysql_connect(
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            host=DB_CONFIG['host'],
+            database=DB_CONFIG['database'],
+            cursorclass=pymysql.cursors.DictCursor # <--- ¡ESTE ES EL ARREGLO!
+        )
+        
+        print("   >>> (D) ¡Conexión lograda internamente!")
         return conn
-    except mysql.connector.Error as err:
+    # ... (el resto de los excepts permanecen igual)
+    except Exception as e:
+        print(f"   >>> (F) ERROR DE CONEXIÓN O CONFIGURACIÓN: {e}")
         return None
+
+print("--- 4. Configuraciones cargadas, definiendo rutas... ---")
 
 # =================================================================
 # RUTA: /login
@@ -54,11 +104,14 @@ def login():
 
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        # CAMBIO 1: Usamos la función get_db_connection() que sí existe
+        # ANTES: conn = get_db_connection()
+        conn = get_db_connection() 
+        
         if not conn:
-             return jsonify({'message': 'Error de conexión con la BD'}), 500
-             
-        cursor = conn.cursor(dictionary=True)
+            return jsonify({'message': 'Error de conexión con la BD'}), 500
+            
+        cursor = conn.cursor()
         sql = "SELECT * FROM usuarios WHERE nombre_usuario = %s"
         cursor.execute(sql, (username,))
         user = cursor.fetchone()
@@ -77,16 +130,18 @@ def login():
         else:
             return jsonify({'message': 'Contraseña incorrecta'}), 401
 
-    except mysql.connector.Error as err:
+    # CAMBIO 2: Usamos el nombre del error de PyMySQL que definimos (PyMySQLError.InternalError)
+    # ANTES: except PyMySQLError.InternalError as err:
+    except PyMySQLError.InternalError as err: 
         print(f"Error de base de datos: {err}")
         return jsonify({'message': 'Error en el servidor'}), 500
+        
     except Exception as e:
         print(f"Error inesperado en login: {e}")
         return jsonify({'message': 'Error interno del servidor'}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
-
 
 # =================================================================
 # RUTAS DEL MÓDULO DE RECURSOS HUMANOS
@@ -129,7 +184,7 @@ def add_candidato():
                  return jsonify({"message": "Tipo de archivo CV no permitido (solo PDF, PNG, JPG, JPEG, DOCX)"}), 400
         
         # 3. Conectar a la BD e Insertar el candidato
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: 
             if file_save_path and os.path.exists(file_save_path): os.remove(file_save_path)
             return jsonify({"message": "Error de conexión con la BD"}), 500
@@ -154,7 +209,7 @@ def add_candidato():
              os.remove(file_save_path)
         return jsonify({"message": "Error al procesar el registro del candidato"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 # -----------------------------------------------------------------
@@ -166,11 +221,11 @@ def get_candidatos_list():
     estado_filtro = request.args.get('estado')
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
-        cursor = conn.cursor(dictionary=True)
-        sql = "SELECT id_candidato AS id, nombre AS nombre, email, etapa_proceso AS estado, DATE_FORMAT(fecha_postulacion, '%Y-%m-%d') AS fecha_post FROM candidatos"
+        cursor = conn.cursor()
+        sql = "SELECT id_candidato AS id, nombre AS nombre, email, etapa_proceso AS estado, DATE_FORMAT(fecha_postulacion, '%%Y-%%m-%%d') AS fecha_post FROM candidatos"
         params = ()
         
         if estado_filtro and estado_filtro not in ["Todos los estados", ""]:
@@ -186,7 +241,7 @@ def get_candidatos_list():
         print(f"Error al obtener candidatos: {e}")
         return jsonify({"message": "Error al consultar la base de datos de candidatos"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -204,7 +259,7 @@ def update_postulante_state(postulante_id):
 
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor()
@@ -221,7 +276,7 @@ def update_postulante_state(postulante_id):
         print(f"Error al actualizar candidato {postulante_id}: {e}")
         return jsonify({"message": "Error al actualizar en la base de datos"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -234,10 +289,10 @@ def get_empleados_list():
     nombre_filtro = request.args.get('nombre')
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         sql = "SELECT id_empleado AS id, nombre AS nombre, sector FROM empleados"
         params = ()
         
@@ -254,7 +309,7 @@ def get_empleados_list():
         print(f"Error al obtener empleados: {e}")
         return jsonify({"message": "Error al consultar la base de datos de empleados"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 # -----------------------------------------------------------------
@@ -265,27 +320,30 @@ def get_employee_capacitaciones(empleado_id):
     """Obtiene el historial de capacitaciones de un empleado específico."""
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         sql = """
-            SELECT c.nombre_curso AS curso, DATE_FORMAT(ec.fecha_finalizacion, '%Y-%m-%d') AS fecha
+            SELECT c.nombre_curso AS curso, 
+            DATE_FORMAT(ec.fecha_finalizacion, '%%Y-%%m-%%d') AS fecha 
             FROM empleado_capacitacion ec
             JOIN capacitaciones c ON ec.id_capacitacion = c.id_capacitacion
             WHERE ec.id_empleado = %s
             ORDER BY ec.fecha_finalizacion DESC
         """
-        cursor.execute(sql, (empleado_id,))
+        params = (int(empleado_id),)
+        cursor.execute(sql, params)
         capacitaciones = cursor.fetchall()
         
         return jsonify(capacitaciones), 200
 
     except Exception as e:
+        # Aquí verás el error de PyMySQL más limpio ahora
         print(f"Error al obtener capacitaciones para el empleado {empleado_id}: {e}")
         return jsonify({"message": "Error al consultar capacitaciones"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -297,10 +355,10 @@ def get_candidato_cv(candidato_id):
     """Busca la ruta del CV en la BD y lo sirve al navegador."""
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         cursor.execute("SELECT cv_path FROM candidatos WHERE id_candidato = %s", (candidato_id,))
         resultado = cursor.fetchone()
         cursor.close()
@@ -318,14 +376,14 @@ def get_candidato_cv(candidato_id):
         
     except FileNotFoundError:
         return jsonify({"message": f"El archivo '{filename}' no existe en el servidor (Carpeta: {UPLOAD_FOLDER})."}), 404
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al buscar CV: {err}")
         return jsonify({'message': 'Error de BD al buscar CV'}), 500
     except Exception as e:
         print(f"Error inesperado al servir el archivo: {e}")
         return jsonify({"message": f"Error al servir el archivo: {str(e)}"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 # =================================================================
@@ -341,10 +399,10 @@ def get_productos_list():
     estado_filtro = request.args.get('estado')
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         # 🚨 NOTA IMPORTANTE: Los nombres de las columnas deben coincidir con tu tabla 'productos'
         sql = """
@@ -371,14 +429,14 @@ def get_productos_list():
         
         return jsonify(productos), 200
 
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al obtener productos: {err}")
         return jsonify({"message": "Error al consultar la base de datos de productos"}), 500
     except Exception as e:
         print(f"Error inesperado al obtener productos: {e}")
         return jsonify({"message": "Error interno del servidor"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 # -----------------------------------------------------------------
@@ -402,7 +460,7 @@ def create_producto():
 
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor()
@@ -424,14 +482,14 @@ def create_producto():
         
         return jsonify({"message": "Producto registrado correctamente", "id": cursor.lastrowid}), 201 # Created
 
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al registrar producto: {err}")
         return jsonify({"message": "Error al registrar en la base de datos"}), 500
     except Exception as e:
         print(f"Error inesperado al registrar producto: {e}")
         return jsonify({"message": "Error interno del servidor"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 # -----------------------------------------------------------------
@@ -450,7 +508,7 @@ def update_producto(producto_id):
 
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor()
@@ -470,14 +528,14 @@ def update_producto(producto_id):
         
         return jsonify({"message": "Producto actualizado correctamente"}), 200
 
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al actualizar producto {producto_id}: {err}")
         return jsonify({"message": "Error al actualizar en la base de datos"}), 500
     except Exception as e:
         print(f"Error inesperado al actualizar producto: {e}")
         return jsonify({"message": "Error interno del servidor"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -509,11 +567,11 @@ def registrar_venta():
     cursor = None
     
     try:
-        conn = connect_db(DB_CONFIG) 
+        conn = get_db_connection() 
         if not conn:
             return jsonify({"message": "Error de conexión con la BD"}), 500
             
-        cursor = conn.cursor(dictionary=True) 
+        cursor = conn.cursor() 
 
         # 1. Verificar Stock, Precio y Categoría del producto
         cursor.execute("SELECT stock, precio_unitario, categoria FROM productos WHERE id_producto = %s", (producto_id,))
@@ -562,7 +620,7 @@ def registrar_venta():
         conn.commit()
         return jsonify({"message": "Venta registrada y stock actualizado con éxito.", "id_venta": id_venta_creada}), 201
 
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         if conn: conn.rollback()
         print(f"Error en la transacción de venta (BD): {err}")
         if err.errno == 1452:
@@ -575,7 +633,7 @@ def registrar_venta():
         
     finally:
         if cursor: cursor.close()
-        if conn and conn.is_connected(): conn.close()
+        if conn: conn.close()
 
 
 @app.route('/api/clientes', methods=['GET'])
@@ -583,11 +641,11 @@ def get_clientes_list():
     """Obtiene la lista de todos los clientes para los OptionMenu."""
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: 
             return jsonify({"message": "Error de conexión con la BD"}), 500
             
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         # 🚨 Asegúrate que tu tabla se llame 'clientes' y las columnas 'id_cliente', 'nombre'
         cursor.execute("SELECT id_cliente, nombre FROM clientes ORDER BY nombre ASC")
         clientes = cursor.fetchall()
@@ -598,7 +656,7 @@ def get_clientes_list():
         print(f"Error al obtener clientes: {e}")
         return jsonify({"message": f"Error interno del servidor: {e}"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -614,11 +672,11 @@ def campañas_handler():
         nombre_filtro = request.args.get('nombre')
         conn = None
         try:
-            conn = connect_db(DB_CONFIG)
+            conn = get_db_connection()
             if not conn: 
                 return jsonify({"message": "Error de conexión con la BD"}), 500
                 
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor()
             
             sql = """
                 SELECT 
@@ -643,14 +701,14 @@ def campañas_handler():
             
             return jsonify(campañas), 200
 
-        except mysql.connector.Error as err:
+        except PyMySQLError.InternalError as err:
             print(f"Error de base de datos al obtener campañas: {err}")
             return jsonify({"message": f"Error de BD: {err}"}), 500
         except Exception as e:
             print(f"Error inesperado al obtener campañas: {e}")
             return jsonify({"message": f"Error interno del servidor: {e}"}), 500
         finally:
-            if conn and conn.is_connected():
+            if conn:
                 conn.close()
 
 
@@ -675,7 +733,7 @@ def campañas_handler():
 
         conn = None
         try:
-            conn = connect_db(DB_CONFIG)
+            conn = get_db_connection()
             if not conn: 
                 return jsonify({"message": "Error de conexión con la BD"}), 500
                 
@@ -696,7 +754,7 @@ def campañas_handler():
             new_id = cursor.lastrowid
             return jsonify({"message": f"Campaña '{nombre}' registrada con éxito. ID: {new_id}"}), 201 # 201 Created
 
-        except mysql.connector.Error as err:
+        except PyMySQLError.InternalError as err:
             # Puedes añadir manejo de errores de integridad (ej: nombre duplicado)
             print(f"Error de base de datos al registrar campaña: {err}")
             return jsonify({"message": f"Error de BD al insertar: {err}"}), 500
@@ -704,7 +762,7 @@ def campañas_handler():
             print(f"Error inesperado al registrar campaña: {e}")
             return jsonify({"message": f"Error interno del servidor: {e}"}), 500
         finally:
-            if conn and conn.is_connected():
+            if conn:
                 conn.close()
 
 
@@ -721,7 +779,7 @@ def update_campana(campana_id):
     
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: 
             return jsonify({"message": "Error de conexión con la BD"}), 500
             
@@ -744,14 +802,14 @@ def update_campana(campana_id):
             
         return jsonify({"message": f"Campaña '{campana_id}' actualizada con éxito."}), 200
 
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al actualizar campaña: {err}")
         return jsonify({"message": f"Error de BD: {err}"}), 500
     except Exception as e:
         print(f"Error inesperado al actualizar campaña: {e}")
         return jsonify({"message": f"Error interno del servidor: {e}"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -764,11 +822,11 @@ def get_ventas_historial():
     
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: 
             return jsonify({"message": "Error de conexión con la BD"}), 500
             
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         
         # 🚨 CONSULTA SQL CON JOINS PARA OBTENER LOS NOMBRES 🚨
         sql = """
@@ -799,14 +857,14 @@ def get_ventas_historial():
         
         return jsonify(historial_ventas), 200
 
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al obtener historial de ventas: {err}")
         return jsonify({"message": f"Error de BD: {err}"}), 500
     except Exception as e:
         print(f"Error inesperado al obtener historial de ventas: {e}")
         return jsonify({"message": f"Error interno del servidor: {e}"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 # También necesitamos una ruta para obtener las categorías para el filtro
@@ -815,7 +873,7 @@ def get_categorias_ventas():
     """Obtiene una lista única de categorías usadas en la tabla ventas."""
     conn = None
     try:
-        conn = connect_db(DB_CONFIG)
+        conn = get_db_connection()
         if not conn: 
             return jsonify({"message": "Error de conexión con la BD"}), 500
         
@@ -825,11 +883,11 @@ def get_categorias_ventas():
         categorias = [row[0] for row in cursor.fetchall()]
         return jsonify(categorias), 200
         
-    except mysql.connector.Error as err:
+    except PyMySQLError.InternalError as err:
         print(f"Error de base de datos al obtener categorías: {err}")
         return jsonify({"message": f"Error de BD: {err}"}), 500
     finally:
-        if conn and conn.is_connected():
+        if conn:
             conn.close()
 
 
@@ -852,7 +910,7 @@ def movimientos_logisticos():
         if not start_date or not end_date:
             return jsonify({"message": "Faltan parámetros de fecha (start_date, end_date)"}), 400
         
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor()
         try:
             # ✅ CORRECCIÓN FINAL DEL JOIN
             query = """
@@ -978,7 +1036,7 @@ def productos_list():
     if not conn:
         return jsonify({"message": "Error de conexión a la base de datos"}), 500
     
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
     try:
         # ✅ CONSULTA SQL CORREGIDA
         query = "SELECT id_producto, nombre FROM productos ORDER BY nombre ASC"
@@ -993,15 +1051,19 @@ def productos_list():
         cursor.close()
         conn.close()
 
-
+print("--- 5. LLEGANDO AL FINAL DEL ARCHIVO ---")
 
 if __name__ == '__main__':
-    # Creamos la carpeta UPLOAD_FOLDER por si acaso, antes de iniciar
+    print("--- 6. ENTRANDO AL BLOQUE DE ARRANQUE ---")
+
+    # 👇 ESTAS LÍNEAS DE ADENTRO SÍ LLEVAN ESPACIOS (INDENTACIÓN)
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-        
-    if connect_db(DB_CONFIG):
-        # Asegúrate de ejecutar el servidor en el modo correcto
+    
+    print("--- 7. PROBANDO CONEXIÓN ---")
+    if get_db_connection():
+        print("✅ Conexión con MySQL exitosa. Iniciando servidor...")
         app.run(debug=True, port=5000)
     else:
-        print("La aplicación no se pudo iniciar debido a un error de conexión con la base de datos.")
+        print("❌ ERROR CRÍTICO: No se pudo conectar a MySQL.")
+        print("   Verifica que XAMPP esté prendido.")
