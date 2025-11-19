@@ -880,7 +880,7 @@ def get_categorias_ventas():
         cursor = conn.cursor()
         # Selecciona las categorías únicas y no nulas
         cursor.execute("SELECT DISTINCT categoria FROM ventas WHERE categoria IS NOT NULL")
-        categorias = [row[0] for row in cursor.fetchall()]
+        categorias = [row['categoria'] for row in cursor.fetchall()]
         return jsonify(categorias), 200
         
     except PyMySQLError.InternalError as err:
@@ -912,7 +912,6 @@ def movimientos_logisticos():
         
         cursor = conn.cursor()
         try:
-            # ✅ CORRECCIÓN FINAL DEL JOIN
             query = """
                 SELECT 
                     ml.id_movimiento,
@@ -920,10 +919,10 @@ def movimientos_logisticos():
                     p.nombre AS nombre_producto,
                     ml.tipo_movimiento,
                     ml.cantidad, 
-                    DATE_FORMAT(ml.fecha_movimiento, '%Y-%m-%d') AS fecha_movimiento,
+                    DATE_FORMAT(ml.fecha_movimiento, '%%Y-%%m-%%d') AS fecha_movimiento,
                     ml.origen_destino
                 FROM movimientoslogisticos ml
-                LEFT JOIN productos p ON ml.id_producto = p.id_producto  /* 🚨 CORREGIDO DE p.id A p.id_producto */
+                LEFT JOIN productos p ON ml.id_producto = p.id_producto 
                 WHERE ml.fecha_movimiento BETWEEN %s AND %s
                 ORDER BY ml.fecha_movimiento DESC
             """
