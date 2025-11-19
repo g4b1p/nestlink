@@ -683,8 +683,8 @@ def campañas_handler():
                     id_campana, 
                     nombre_campana, 
                     objetivo, 
-                    DATE_FORMAT(fecha_inicio, '%Y-%m-%d') as fecha_inicio, 
-                    DATE_FORMAT(fecha_fin, '%Y-%m-%d') as fecha_fin, 
+                    DATE_FORMAT(fecha_inicio, '%%Y-%%m-%%d') as fecha_inicio, 
+                    DATE_FORMAT(fecha_fin, '%%Y-%%m-%%d') as fecha_fin, 
                     resultados 
                 FROM campanas
             """
@@ -835,7 +835,7 @@ def get_ventas_historial():
                 p.nombre AS nombre_producto, 
                 v.categoria, 
                 v.cantidad, 
-                DATE_FORMAT(v.fecha_venta, '%Y-%m-%d %H:%i') AS fecha_venta, 
+                DATE_FORMAT(v.fecha_venta, '%%Y-%%m-%%d %%H:%%i') AS fecha_venta, 
                 c.nombre AS nombre_cliente, 
                 e.nombre AS nombre_vendedor, 
                 v.monto_total
