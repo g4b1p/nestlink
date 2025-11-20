@@ -8,19 +8,20 @@ except ImportError as e:
     print(f"!!! ERROR IMPORTANDO FLASK: {e}")
 
 import os
+import sys
 import bcrypt
 
 try:
     # Importamos PyMySQL con un alias simple
-    import pymysql
+    import sqlite3
     # Importamos el módulo de errores de PyMySQL
-    from pymysql import err as PyMySQLError
-    from pymysql import cursors as pymysql_cursors
+    from sqlite3 import Error as SQLiteError
+    # from pymysql import cursors as pymysql_cursors
     
     # Creamos un alias para la función connect de PyMySQL
-    pymysql_connect = pymysql.connect
+    # pymysql_connect = pymysql.connect
     
-    print("--- 3. PyMySQL importado y listo ---")
+    print("--- 3. sqlite3 importado y listo ---")
 except Exception as e:
     print(f"!!! ERROR AL IMPORTAR PYMYSQL: {e}")
 
@@ -29,15 +30,23 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 from decimal import Decimal
 
-# COMENTAMOS ESTO PARA EVITAR ERRORES SI DATABASE.PY TIENE CÓDIGO DE FIREBASE
-# from database import connect_db 
+if getattr(sys, 'frozen', False):
+    # Si es .exe, la base es la carpeta donde está el archivo ejecutable
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    # Si es .py, la base es la carpeta donde está este archivo app.py
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
-# Crea la carpeta si no existe
-UPLOAD_FOLDER = 'data/cvs'
+# 2. Definir carpeta de datos EXTERNA (donde se guardan los CVs)
+# Esto apunta a: NestLinkApp/data/cvs
+DATA_FOLDER = os.path.join(BASE_DIR, 'data')
+UPLOAD_FOLDER = os.path.join(DATA_FOLDER, 'cvs')
+
+# Crear carpeta si no existe
 if not os.path.exists(UPLOAD_FOLDER):
     try:
         os.makedirs(UPLOAD_FOLDER)
-        print(f"--- Carpeta creada: {UPLOAD_FOLDER} ---")
+        print(f"--- CARPETA CREADA: {UPLOAD_FOLDER} ---")
     except Exception as e:
         print(f"!!! ERROR CREANDO CARPETA: {e}")
 
@@ -64,28 +73,33 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS # Carpeta temporal de PyInstaller
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+# Usamos resource_path para que encuentre la DB empaquetada al arrancar
+DATABASE_FILE = resource_path(os.path.join('data', 'nestlink_database.db'))
+
+print(f"--> RUTA DE CVS CONFIGURADA EN: {UPLOAD_FOLDER}")
+
 # Función auxiliar para obtener conexión
 def get_db_connection():
     print("   >>> (A) Entrando a get_db_connection...")
+    conn = None
     try:
-        print(f"   >>> (B) Configuración usada: {DB_CONFIG}")
-        print("   >>> (C) Intentando ejecutar PyMySQL.connect...")
-        
-        # CAMBIO CLAVE: Configuramos el cursor para diccionarios AQUÍ.
-        # Esto elimina la necesidad de pasar 'dictionary=True' o 'cursorclass=...'
-        conn = pymysql_connect(
-            user=DB_CONFIG['user'],
-            password=DB_CONFIG['password'],
-            host=DB_CONFIG['host'],
-            database=DB_CONFIG['database'],
-            cursorclass=pymysql.cursors.DictCursor # <--- ¡ESTE ES EL ARREGLO!
-        )
-        
-        print("   >>> (D) ¡Conexión lograda internamente!")
+        conn = sqlite3.connect(DATABASE_FILE, timeout=10)
+        conn.isolation_level = None
+        conn.row_factory = sqlite3.Row
         return conn
-    # ... (el resto de los excepts permanecen igual)
+    except sqlite3.OperationalError as e:
+        # Este error puede ser lanzado si el timeout es excedido o hay otro problema de conexión
+        print(f"Error de Operación de BD (Timeout?): {e}")
+        return None
     except Exception as e:
-        print(f"   >>> (F) ERROR DE CONEXIÓN O CONFIGURACIÓN: {e}")
+        print(f"Error inesperado al conectar a la BD: {e}")
         return None
 
 print("--- 4. Configuraciones cargadas, definiendo rutas... ---")
@@ -112,7 +126,7 @@ def login():
             return jsonify({'message': 'Error de conexión con la BD'}), 500
             
         cursor = conn.cursor()
-        sql = "SELECT * FROM usuarios WHERE nombre_usuario = %s"
+        sql = "SELECT * FROM usuarios WHERE nombre_usuario = ?"
         cursor.execute(sql, (username,))
         user = cursor.fetchone()
         cursor.close()
@@ -132,7 +146,7 @@ def login():
 
     # CAMBIO 2: Usamos el nombre del error de PyMySQL que definimos (PyMySQLError.InternalError)
     # ANTES: except PyMySQLError.InternalError as err:
-    except PyMySQLError.InternalError as err: 
+    except sqlite3.Error as err: 
         print(f"Error de base de datos: {err}")
         return jsonify({'message': 'Error en el servidor'}), 500
         
@@ -194,7 +208,7 @@ def add_candidato():
         # Insertamos el candidato con el cv_path (que puede ser NULL si no subió archivo)
         sql = """
             INSERT INTO candidatos (nombre, email, etapa_proceso, fecha_postulacion, cv_path)
-            VALUES (%s, %s, %s, CURDATE(), %s)
+            VALUES (?, ?, ?, DATE('now'), ?) 
         """
         # El estado inicial siempre será 'Recibido'
         cursor.execute(sql, (nombre, email, "Recibido", cv_path))
@@ -225,17 +239,18 @@ def get_candidatos_list():
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor()
-        sql = "SELECT id_candidato AS id, nombre AS nombre, email, etapa_proceso AS estado, DATE_FORMAT(fecha_postulacion, '%%Y-%%m-%%d') AS fecha_post FROM candidatos"
+        sql = "SELECT id_candidato AS id, nombre AS nombre, email, etapa_proceso AS estado, strftime('%Y-%m-%d', fecha_postulacion) AS fecha_post FROM candidatos"
         params = ()
         
         if estado_filtro and estado_filtro not in ["Todos los estados", ""]:
-            sql += " WHERE etapa_proceso = %s"
+            sql += " WHERE etapa_proceso = ?"
             params = (estado_filtro,)
 
         cursor.execute(sql, params)
         candidatos = cursor.fetchall()
         
-        return jsonify(candidatos), 200
+        candidatos_list = [dict(row) for row in candidatos]
+        return jsonify(candidatos_list), 200
 
     except Exception as e:
         print(f"Error al obtener candidatos: {e}")
@@ -263,7 +278,7 @@ def update_postulante_state(postulante_id):
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor()
-        sql = "UPDATE candidatos SET etapa_proceso = %s WHERE id_candidato = %s" 
+        sql = "UPDATE candidatos SET etapa_proceso = ? WHERE id_candidato = ?" 
         cursor.execute(sql, (nuevo_estado, postulante_id))
         conn.commit()
         
@@ -297,13 +312,14 @@ def get_empleados_list():
         params = ()
         
         if nombre_filtro:
-            sql += " WHERE nombre LIKE %s"
+            sql += " WHERE nombre LIKE ?"
             params = (f'%{nombre_filtro}%',)
 
         cursor.execute(sql, params)
         empleados = cursor.fetchall()
         
-        return jsonify(empleados), 200
+        empleados_list = [dict(row) for row in empleados]
+        return jsonify(empleados_list), 200
 
     except Exception as e:
         print(f"Error al obtener empleados: {e}")
@@ -326,17 +342,18 @@ def get_employee_capacitaciones(empleado_id):
         cursor = conn.cursor()
         sql = """
             SELECT c.nombre_curso AS curso, 
-            DATE_FORMAT(ec.fecha_finalizacion, '%%Y-%%m-%%d') AS fecha 
+            strftime('%Y-%m-%d', ec.fecha_finalizacion) AS fecha 
             FROM empleado_capacitacion ec
             JOIN capacitaciones c ON ec.id_capacitacion = c.id_capacitacion
-            WHERE ec.id_empleado = %s
+            WHERE ec.id_empleado = ?
             ORDER BY ec.fecha_finalizacion DESC
         """
         params = (int(empleado_id),)
         cursor.execute(sql, params)
         capacitaciones = cursor.fetchall()
         
-        return jsonify(capacitaciones), 200
+        capacitaciones_list = [dict(row) for row in capacitaciones]
+        return jsonify(capacitaciones_list), 200
 
     except Exception as e:
         # Aquí verás el error de PyMySQL más limpio ahora
@@ -359,7 +376,7 @@ def get_candidato_cv(candidato_id):
         if not conn: return jsonify({"message": "Error de conexión con la BD"}), 500
 
         cursor = conn.cursor()
-        cursor.execute("SELECT cv_path FROM candidatos WHERE id_candidato = %s", (candidato_id,))
+        cursor.execute("SELECT cv_path FROM candidatos WHERE id_candidato = ?", (candidato_id,))
         resultado = cursor.fetchone()
         cursor.close()
 
@@ -367,6 +384,18 @@ def get_candidato_cv(candidato_id):
             return jsonify({"message": f"CV no encontrado para candidato ID: {candidato_id} (Path no definido en BD)"}), 404
 
         filename = resultado['cv_path']
+
+        full_file_path = os.path.join(UPLOAD_FOLDER, filename)
+        print(f"--> SOLICITUD DE CV:")
+        print(f"    1. Archivo buscado: {filename}")
+        print(f"    2. Ruta completa intentada: {full_file_path}")
+        print(f"    3. ¿Existe el archivo?: {os.path.exists(full_file_path)}")
+        # -------------------------------------
+
+        if not os.path.exists(full_file_path):
+            return jsonify({
+                "message": f"Error 404: El archivo '{filename}' NO existe en la carpeta física: {UPLOAD_FOLDER}. Por favor copie los archivos manualmente."
+            }), 404
 
         return send_from_directory(
             directory=UPLOAD_FOLDER,
@@ -376,7 +405,7 @@ def get_candidato_cv(candidato_id):
         
     except FileNotFoundError:
         return jsonify({"message": f"El archivo '{filename}' no existe en el servidor (Carpeta: {UPLOAD_FOLDER})."}), 404
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al buscar CV: {err}")
         return jsonify({'message': 'Error de BD al buscar CV'}), 500
     except Exception as e:
@@ -419,7 +448,7 @@ def get_productos_list():
         params = ()
         
         if estado_filtro and estado_filtro not in ["Todos los estados", ""]:
-            sql += " WHERE estado = %s"
+            sql += " WHERE estado = ?"
             params = (estado_filtro,)
             
         sql += " ORDER BY nombre ASC" # Ordenar alfabéticamente
@@ -427,9 +456,10 @@ def get_productos_list():
         cursor.execute(sql, params)
         productos = cursor.fetchall()
         
-        return jsonify(productos), 200
+        productos_list = [dict(row) for row in productos]
+        return jsonify(productos_list), 200
 
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al obtener productos: {err}")
         return jsonify({"message": "Error al consultar la base de datos de productos"}), 500
     except Exception as e:
@@ -466,14 +496,14 @@ def create_producto():
         cursor = conn.cursor()
         
         # 1. Verificar si ya existe un producto con el mismo nombre (ejemplo de unicidad)
-        cursor.execute("SELECT id_producto FROM productos WHERE nombre = %s", (nombre,))
+        cursor.execute("SELECT id_producto FROM productos WHERE nombre = ?", (nombre,))
         if cursor.fetchone():
             return jsonify({"message": f"Ya existe un producto registrado con el nombre '{nombre}'."}), 409 # Conflict
 
         # 2. Insertar el nuevo producto
         sql = """
             INSERT INTO productos (nombre, categoria, precio_unitario, stock, estado, lote)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
         params = (nombre, categoria, precio, stock, estado, lote)
         
@@ -482,7 +512,7 @@ def create_producto():
         
         return jsonify({"message": "Producto registrado correctamente", "id": cursor.lastrowid}), 201 # Created
 
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al registrar producto: {err}")
         return jsonify({"message": "Error al registrar en la base de datos"}), 500
     except Exception as e:
@@ -515,8 +545,8 @@ def update_producto(producto_id):
         
         sql = """
             UPDATE productos 
-            SET precio_unitario = %s, stock = %s, estado = %s, lote = %s
-            WHERE id_producto = %s
+            SET precio_unitario = ?, stock = ?, estado = ?, lote = ?
+            WHERE id_producto = ?
         """
         params = (precio, stock, estado, lote, producto_id)
         
@@ -528,7 +558,7 @@ def update_producto(producto_id):
         
         return jsonify({"message": "Producto actualizado correctamente"}), 200
 
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al actualizar producto {producto_id}: {err}")
         return jsonify({"message": "Error al actualizar en la base de datos"}), 500
     except Exception as e:
@@ -574,7 +604,7 @@ def registrar_venta():
         cursor = conn.cursor() 
 
         # 1. Verificar Stock, Precio y Categoría del producto
-        cursor.execute("SELECT stock, precio_unitario, categoria FROM productos WHERE id_producto = %s", (producto_id,))
+        cursor.execute("SELECT stock, precio_unitario, categoria FROM productos WHERE id_producto = ?", (producto_id,))
         producto = cursor.fetchone()
         
         if not producto:
@@ -593,6 +623,7 @@ def registrar_venta():
         subtotal = precio_unitario * cantidad 
         iva = subtotal * Decimal('0.16') # Usamos Decimal
         total_venta = subtotal + iva
+        total_venta_float = float(total_venta)
         fecha_venta = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 3. Registrar la Venta (Inserción ÚNICA)
@@ -602,29 +633,29 @@ def registrar_venta():
                 id_producto, categoria, id_cliente, id_usuario_vendedor, 
                 cantidad, fecha_venta, monto_total
             ) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         cursor.execute(
             sql_insert_venta, 
             (
                 producto_id, categoria_producto, id_cliente, id_vendedor, 
-                cantidad, fecha_venta, total_venta
+                cantidad, fecha_venta, total_venta_float
             )
         )
         id_venta_creada = cursor.lastrowid
 
         # 4. Actualizar el Stock del Producto
         nuevo_stock = stock_actual - cantidad
-        cursor.execute("UPDATE productos SET stock = %s WHERE id_producto = %s", (nuevo_stock, producto_id))
+        cursor.execute("UPDATE productos SET stock = ? WHERE id_producto = ?", (nuevo_stock, producto_id))
 
         conn.commit()
         return jsonify({"message": "Venta registrada y stock actualizado con éxito.", "id_venta": id_venta_creada}), 201
 
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         if conn: conn.rollback()
         print(f"Error en la transacción de venta (BD): {err}")
-        if err.errno == 1452:
-             return jsonify({"message": f"Error de BD: Clave foránea fallida. Revise si el cliente ID={id_cliente} o vendedor ID={id_vendedor} existen."}), 500
+        # if err.errno == 1452:
+            # return jsonify({"message": f"Error de BD: Clave foránea fallida. Revise si el cliente ID={id_cliente} o vendedor ID={id_vendedor} existen."}), 500
         return jsonify({"message": f"Error de base de datos al registrar venta: {err}"}), 500
     except Exception as e:
         if conn: conn.rollback()
@@ -649,8 +680,10 @@ def get_clientes_list():
         # 🚨 Asegúrate que tu tabla se llame 'clientes' y las columnas 'id_cliente', 'nombre'
         cursor.execute("SELECT id_cliente, nombre FROM clientes ORDER BY nombre ASC")
         clientes = cursor.fetchall()
+
+        clientes_list = [dict(row) for row in clientes]
         
-        return jsonify(clientes), 200
+        return jsonify(clientes_list), 200
 
     except Exception as e:
         print(f"Error al obtener clientes: {e}")
@@ -683,15 +716,15 @@ def campañas_handler():
                     id_campana, 
                     nombre_campana, 
                     objetivo, 
-                    DATE_FORMAT(fecha_inicio, '%%Y-%%m-%%d') as fecha_inicio, 
-                    DATE_FORMAT(fecha_fin, '%%Y-%%m-%%d') as fecha_fin, 
+                    strftime('%Y-%m-%d', fecha_inicio) as fecha_inicio, 
+                    strftime('%Y-%m-%d', fecha_fin) as fecha_fin, 
                     resultados 
                 FROM campanas
             """
             params = ()
             
             if nombre_filtro:
-                sql += " WHERE nombre_campana LIKE %s"
+                sql += " WHERE nombre_campana LIKE ?"
                 params = (f'%{nombre_filtro}%',)
                 
             sql += " ORDER BY fecha_inicio DESC" 
@@ -699,9 +732,10 @@ def campañas_handler():
             cursor.execute(sql, params)
             campañas = cursor.fetchall()
             
-            return jsonify(campañas), 200
+            campanas_list = [dict(row) for row in campañas]
+            return jsonify(campanas_list), 200
 
-        except PyMySQLError.InternalError as err:
+        except sqlite3.Error as err:
             print(f"Error de base de datos al obtener campañas: {err}")
             return jsonify({"message": f"Error de BD: {err}"}), 500
         except Exception as e:
@@ -743,7 +777,7 @@ def campañas_handler():
                 INSERT INTO campanas 
                     (nombre_campana, objetivo, fecha_inicio, fecha_fin, resultados) 
                 VALUES 
-                    (%s, %s, %s, %s, %s)
+                    (?, ?, ?, ?, ?)
             """
             params = (nombre, objetivo, fecha_inicio, fecha_fin, resultados)
             
@@ -754,7 +788,7 @@ def campañas_handler():
             new_id = cursor.lastrowid
             return jsonify({"message": f"Campaña '{nombre}' registrada con éxito. ID: {new_id}"}), 201 # 201 Created
 
-        except PyMySQLError.InternalError as err:
+        except sqlite3.Error as err:
             # Puedes añadir manejo de errores de integridad (ej: nombre duplicado)
             print(f"Error de base de datos al registrar campaña: {err}")
             return jsonify({"message": f"Error de BD al insertar: {err}"}), 500
@@ -789,8 +823,8 @@ def update_campana(campana_id):
         # NOTA: nombre_campana e id_campana NO se actualizan.
         sql = """
             UPDATE campanas 
-            SET objetivo = %s, fecha_inicio = %s, fecha_fin = %s, resultados = %s
-            WHERE id_campana = %s
+            SET objetivo = ?, fecha_inicio = ?, fecha_fin = ?, resultados = ?
+            WHERE id_campana = ?
         """
         params = (objetivo, fecha_inicio, fecha_fin, resultados, campana_id)
         
@@ -802,7 +836,7 @@ def update_campana(campana_id):
             
         return jsonify({"message": f"Campaña '{campana_id}' actualizada con éxito."}), 200
 
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al actualizar campaña: {err}")
         return jsonify({"message": f"Error de BD: {err}"}), 500
     except Exception as e:
@@ -835,7 +869,7 @@ def get_ventas_historial():
                 p.nombre AS nombre_producto, 
                 v.categoria, 
                 v.cantidad, 
-                DATE_FORMAT(v.fecha_venta, '%%Y-%%m-%%d %%H:%%i') AS fecha_venta, 
+                strftime('%Y-%m-%d %H:%M', v.fecha_venta) AS fecha_venta, 
                 c.nombre AS nombre_cliente, 
                 e.nombre AS nombre_vendedor, 
                 v.monto_total
@@ -847,7 +881,7 @@ def get_ventas_historial():
         params = ()
         
         if categoria_filtro and categoria_filtro != 'Todas':
-            sql += " WHERE v.categoria = %s"
+            sql += " WHERE v.categoria = ?"
             params = (categoria_filtro,)
             
         sql += " ORDER BY v.fecha_venta DESC" # Ordenar por más recientes
@@ -855,9 +889,10 @@ def get_ventas_historial():
         cursor.execute(sql, params)
         historial_ventas = cursor.fetchall()
         
-        return jsonify(historial_ventas), 200
+        ventas_list = [dict(row) for row in historial_ventas]
+        return jsonify(ventas_list), 200
 
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al obtener historial de ventas: {err}")
         return jsonify({"message": f"Error de BD: {err}"}), 500
     except Exception as e:
@@ -883,7 +918,7 @@ def get_categorias_ventas():
         categorias = [row['categoria'] for row in cursor.fetchall()]
         return jsonify(categorias), 200
         
-    except PyMySQLError.InternalError as err:
+    except sqlite3.Error as err:
         print(f"Error de base de datos al obtener categorías: {err}")
         return jsonify({"message": f"Error de BD: {err}"}), 500
     finally:
@@ -919,17 +954,17 @@ def movimientos_logisticos():
                     p.nombre AS nombre_producto,
                     ml.tipo_movimiento,
                     ml.cantidad, 
-                    DATE_FORMAT(ml.fecha_movimiento, '%%Y-%%m-%%d') AS fecha_movimiento,
+                    strftime('%Y-%m-%d', ml.fecha_movimiento) AS fecha_movimiento,
                     ml.origen_destino
                 FROM movimientoslogisticos ml
                 LEFT JOIN productos p ON ml.id_producto = p.id_producto 
-                WHERE ml.fecha_movimiento BETWEEN %s AND %s
+                WHERE ml.fecha_movimiento BETWEEN ? AND ?
                 ORDER BY ml.fecha_movimiento DESC
             """
             cursor.execute(query, (start_date, end_date))
             movimientos = cursor.fetchall()
-            
-            return jsonify(movimientos), 200
+            movimientos_list = [dict(row) for row in movimientos]
+            return jsonify(movimientos_list), 200
         except Exception as e:
             # Imprime el error exacto en el servidor para el diagnóstico
             print(f"Error de SQL: {e}") 
@@ -962,7 +997,7 @@ def movimientos_logisticos():
             query = """
                 INSERT INTO movimientoslogisticos 
                 (id_producto, tipo_movimiento, cantidad, fecha_movimiento, origen_destino) 
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES (?, ?, ?, ?, ?)
             """
             
             # 🚨 PASO 3: Los valores coinciden en orden con la consulta
@@ -1000,10 +1035,11 @@ def update_movimiento_logistico(movimiento_id):
     try:
         query = """
             UPDATE movimientoslogisticos SET 
-            cantidad = %s, fecha_movimiento = %s, origen_destino = %s, tipo_movimiento = %s 
-            WHERE id_movimiento = %s
+            id_producto = ?, cantidad = ?, fecha_movimiento = ?, origen_destino = ?, tipo_movimiento = ? 
+            WHERE id_movimiento = ?
         """
         values = (
+            data.get('id_producto'),
             data.get('cantidad'), 
             data.get('fecha_movimiento'), 
             data.get('origen_destino'),
@@ -1041,7 +1077,8 @@ def productos_list():
         query = "SELECT id_producto, nombre FROM productos ORDER BY nombre ASC"
         cursor.execute(query)
         productos = cursor.fetchall()
-        return productos
+        productos_list = [dict(row) for row in productos]
+        return jsonify(productos_list), 200
     except Exception as e:
         # Es bueno registrar el error aquí
         print(f"Error de SQL: {e}") 
@@ -1061,7 +1098,7 @@ if __name__ == '__main__':
     
     print("--- 7. PROBANDO CONEXIÓN ---")
     if get_db_connection():
-        print("✅ Conexión con MySQL exitosa. Iniciando servidor...")
+        print("✅ Conexión con SQLite exitosa. Iniciando servidor...")
         app.run(debug=True, port=5000)
     else:
         print("❌ ERROR CRÍTICO: No se pudo conectar a MySQL.")
